@@ -1,0 +1,15 @@
+{
+    "appTitle": "Weather You Travel ✈️",
+    "appSubtitle": "Flight details & destination weather at a glance.",
+    "planTrip": "Plan Your Trip",
+    "departureFlight": "Departure Flight (e.g., JL123)",
+    "returnFlight": "Return Flight (Optional)",
+    "flightNumberPlaceholder": "Flight Number",
+    "getInfo": "Get Info",
+    "searching": "Searching...",
+    "flightNotFound": "Flight not found. Please try JL123, NH456, or JL999.",
+    "departure": "Departure",
+    "return": "Return",
+    "airline": "Airline",
+    "weatherForecast": "Weather Forecast for {{city}}"
+}
