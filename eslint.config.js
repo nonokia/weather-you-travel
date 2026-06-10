@@ -26,4 +26,15 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // Node-context files: build/test config and Playwright E2E specs run under
+    // Node, so they need Node globals (process, etc.) rather than browser ones.
+    files: [
+      '**/*.config.{js,jsx}',
+      'e2e/**/*.{js,jsx}',
+    ],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 ])
