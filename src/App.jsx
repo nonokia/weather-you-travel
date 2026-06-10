@@ -39,6 +39,7 @@ function App() {
         setWeatherData(weather);
       }
     } catch (err) {
+      console.error('Search failed:', err);
       setError(t('flightNotFound'));
     } finally {
       setLoading(false);

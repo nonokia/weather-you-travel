@@ -1,0 +1,54 @@
+name: Agent build (issue to PR)
+
+# File an issue describing what you want, add the `agent:build` label, and an
+# agent designs and implements it, then opens a PR. "Write the intent; the
+# system writes the code."
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  build:
+    if: github.event.label.name == 'agent:build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # Subscription auth (see claude.yml for the API-key alternative).
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          branch_prefix: "agent-build/"
+          prompt: |
+            Implement the feature/change requested in issue
+            #${{ github.event.issue.number }}: "${{ github.event.issue.title }}".
+
+            Full request:
+            ---
+            ${{ github.event.issue.body }}
+            ---
+
+            Process:
+              1. Read the codebase (start with CLAUDE.md and the relevant area)
+                 and decide on a minimal, idiomatic design.
+              2. Implement it. Match the surrounding code's style and conventions.
+              3. Add or update tests so the new behavior is covered, and add i18n
+                 keys to BOTH locale files if you touch UI text.
+              4. Make `npm run lint`, `npm run test:run`, and `npm run build`
+                 all pass.
+              5. Open a PR that closes #${{ github.event.issue.number }},
+                 describing the design choices you made and any trade-offs.
+
+            Follow .github/AGENT_GUARDRAILS.md. If the request is ambiguous or too
+            large for one focused PR, implement the clearest useful slice and note
+            in the PR what you deferred and why — do not guess wildly.
+          claude_args: "--max-turns 15"

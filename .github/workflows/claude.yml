@@ -1,0 +1,42 @@
+name: Claude (interactive)
+
+# Mention @claude in an issue, PR, or review comment to bring an agent into the
+# conversation — to answer a question, implement a small change, or investigate.
+# This is the human-in-the-loop entry point to the autonomous system.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude:
+    if: >
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'issues' && contains(github.event.issue.body, '@claude'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # Uses your Claude Pro/Max subscription (the agent-credit pool from
+          # 2026-06-15). To switch to pay-as-you-go API billing instead, replace
+          # this line with: anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # NOTE: if BOTH secrets are set, the API key wins and you are billed
+          # at API rates — set only one.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          use_sticky_comment: true
+          claude_args: "--max-turns 10"

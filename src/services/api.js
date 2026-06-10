@@ -76,7 +76,75 @@ const API_KEYS = {
   OPENWEATHER: import.meta.env.VITE_OPENWEATHER_KEY || ''      // Get key from https://openweathermap.org/
 };
 
-// ... (Mock Data remains same) ...
+const MOCK_DELAY_MS = 800;
+
+// ---------------------------------------------------------------------------
+// Pure helpers (network-free, unit-testable). Keeping the data-shaping logic
+// out of the async functions lets the test suite cover the real-API code paths
+// without hitting the network — which is what makes the self-healing CI
+// meaningful (a regression here fails a fast, deterministic test).
+// ---------------------------------------------------------------------------
+
+// Map an OpenWeatherMap "main" condition to a display icon.
+export const getWeatherIcon = (condition) => {
+  switch (String(condition).toLowerCase()) {
+    case 'clear': return '☀️';
+    case 'clouds': return '☁️';
+    case 'rain': return '🌧️';
+    case 'drizzle': return '🌦️';
+    case 'thunderstorm': return '⛈️';
+    case 'snow': return '❄️';
+    default: return '🌫️';
+  }
+};
+
+// Best-effort city name from an IANA timezone (e.g. "America/Los_Angeles").
+// Note: this is an approximation — the airport's timezone city is not always
+// the destination city. Tracked as a known limitation for the agent pipeline.
+export const cityFromTimezone = (timezone) => {
+  if (!timezone || typeof timezone !== 'string' || !timezone.includes('/')) {
+    return timezone || '';
+  }
+  return timezone.split('/').pop().replace(/_/g, ' ');
+};
+
+// Normalize a raw AviationStack flight record into our internal shape.
+export const mapAviationStackFlight = (flight) => ({
+  flightNumber: flight.flight.iata,
+  airline: flight.airline.name,
+  departure: {
+    airport: flight.departure.iata,
+    airportName: flight.departure.airport,
+    city: cityFromTimezone(flight.departure.timezone),
+    time: flight.departure.scheduled.split('T')[1].substring(0, 5)
+  },
+  arrival: {
+    airport: flight.arrival.iata,
+    airportName: flight.arrival.airport,
+    city: cityFromTimezone(flight.arrival.timezone),
+    time: flight.arrival.scheduled.split('T')[1].substring(0, 5)
+  }
+});
+
+// Collapse OpenWeatherMap's 3-hourly list into one entry per day.
+export const aggregateForecast = (list, days = 3) => {
+  const dailyForecast = [];
+  for (let i = 0; i < list.length; i += 8) { // ~every 24h (8 * 3h)
+    const item = list[i];
+    dailyForecast.push({
+      date: item.dt_txt.split(' ')[0],
+      temp: Math.round(item.main.temp),
+      condition: item.weather[0].main,
+      icon: getWeatherIcon(item.weather[0].main)
+    });
+  }
+  return dailyForecast.slice(0, days);
+};
+
+// ---------------------------------------------------------------------------
+// Data-fetching functions: real API first when a key is present, otherwise a
+// mock fallback so the app keeps working without keys.
+// ---------------------------------------------------------------------------
 
 export const getFlightDetails = async (flightNumber) => {
   // Try Real API first if key exists
@@ -86,23 +154,7 @@ export const getFlightDetails = async (flightNumber) => {
       const data = await response.json();
 
       if (data.data && data.data.length > 0) {
-        const flight = data.data[0];
-        return {
-          flightNumber: flight.flight.iata,
-          airline: flight.airline.name,
-          departure: {
-            airport: flight.departure.iata,
-            airportName: flight.departure.airport,
-            city: flight.departure.timezone.split('/')[1].replace('_', ' '), // Approximate city from timezone
-            time: flight.departure.scheduled.split('T')[1].substring(0, 5)
-          },
-          arrival: {
-            airport: flight.arrival.iata,
-            airportName: flight.arrival.airport,
-            city: flight.arrival.timezone.split('/')[1].replace('_', ' '),
-            time: flight.arrival.scheduled.split('T')[1].substring(0, 5)
-          }
-        };
+        return mapAviationStackFlight(data.data[0]);
       }
     } catch (error) {
       console.warn('Failed to fetch from AviationStack, falling back to mock data:', error);
@@ -118,7 +170,7 @@ export const getFlightDetails = async (flightNumber) => {
       } else {
         reject(new Error('Flight not found'));
       }
-    }, 800);
+    }, MOCK_DELAY_MS);
   });
 };
 
@@ -130,18 +182,7 @@ export const getWeather = async (city, days = 3) => {
       const data = await response.json();
 
       if (data.list) {
-        // Process 3-hour forecast into daily summary (simplified)
-        const dailyForecast = [];
-        for (let i = 0; i < data.list.length; i += 8) { // Approx every 24h
-          const item = data.list[i];
-          dailyForecast.push({
-            date: item.dt_txt.split(' ')[0],
-            temp: Math.round(item.main.temp),
-            condition: item.weather[0].main,
-            icon: getWeatherIcon(item.weather[0].main)
-          });
-        }
-        return dailyForecast.slice(0, days);
+        return aggregateForecast(data.list, days);
       }
     } catch (error) {
       console.warn('Failed to fetch from OpenWeatherMap, falling back to mock data:', error);
@@ -153,16 +194,6 @@ export const getWeather = async (city, days = 3) => {
     setTimeout(() => {
       const forecast = WEATHER[city] || [];
       resolve(forecast.slice(0, days));
-    }, 800);
+    }, MOCK_DELAY_MS);
   });
-};
-
-const getWeatherIcon = (condition) => {
-  switch (condition.toLowerCase()) {
-    case 'clear': return '☀️';
-    case 'clouds': return '☁️';
-    case 'rain': return '🌧️';
-    case 'snow': return '❄️';
-    default: return 'tj';
-  }
 };

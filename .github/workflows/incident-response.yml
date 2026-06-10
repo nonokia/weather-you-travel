@@ -1,0 +1,73 @@
+name: Incident response
+
+# Closes the loop between runtime errors and code fixes. A production error
+# monitor (e.g. Sentry) is wired to either:
+#   - POST a `repository_dispatch` event of type `incident` with the error
+#     payload, or
+#   - open an issue labelled `incident`.
+# An agent performs root-cause analysis, posts its findings, and opens a fix PR.
+#
+# See docs/AUTONOMOUS_SYSTEM.md for how to wire an error monitor to this hook.
+
+on:
+  repository_dispatch:
+    types: [incident]
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  respond:
+    if: >
+      github.event_name == 'repository_dispatch' ||
+      (github.event_name == 'issues' && github.event.label.name == 'incident')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Stage the incident payload
+        # Pass the untrusted payload through env (never interpolate ${{ }} into
+        # the shell directly) so a crafted error message can't inject commands.
+        env:
+          INCIDENT_PAYLOAD: ${{ github.event_name == 'repository_dispatch' && toJSON(github.event.client_payload) || toJSON(github.event.issue) }}
+        run: |
+          mkdir -p /tmp/incident
+          printf '%s' "$INCIDENT_PAYLOAD" > /tmp/incident/report.json
+          echo "Incident payload staged at /tmp/incident/report.json"
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # Subscription auth (see claude.yml for the API-key alternative).
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          branch_prefix: "incident-fix/"
+          prompt: |
+            A production incident was reported. The error details (stack trace,
+            message, metadata, or issue body) are at /tmp/incident/report.json.
+
+            Perform root-cause analysis:
+              1. Parse the payload — extract the error type, message, and any
+                 stack frames or file references.
+              2. Trace it to the responsible code in this repository.
+              3. Determine the root cause (not just the surface symptom).
+              4. Implement a fix AND add a regression test that fails without the
+                 fix and passes with it.
+              5. Verify `npm run lint`, `npm run test:run`, and `npm run build`.
+
+            Then:
+              - Open a PR titled for the incident, explaining the root cause, the
+                fix, and the regression test, with a clear severity assessment.
+              ${{ github.event_name == 'issues' && format('- Reference and close issue #{0}.', github.event.issue.number) || '' }}
+
+            If the payload is too sparse to localize the bug, do not guess —
+            document in a PR comment (or the issue) exactly what additional
+            information (repro steps, full stack trace, input) you need.
+
+            Follow .github/AGENT_GUARDRAILS.md.
+          claude_args: "--max-turns 15"
