@@ -1,0 +1,56 @@
+name: Scheduled self-improvement
+
+# Once a week, an agent audits the codebase and opens ONE focused improvement PR
+# — a refactor, a test-coverage gap, a small UX or a11y fix, a doc correction.
+# Deliberately scoped to a single high-value change so reviews stay tractable.
+
+on:
+  schedule:
+    - cron: "0 9 * * MON" # Mondays 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: "Optional area to focus the audit on (e.g. 'a11y', 'tests', 'api.js')"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          branch_prefix: "self-improvement/"
+          prompt: |
+            Audit this codebase and propose ONE focused, high-value improvement,
+            then implement it and open a PR.
+            ${{ github.event.inputs.focus && format('Focus this audit on: {0}.', github.event.inputs.focus) || '' }}
+
+            Look for the single best opportunity among:
+              - missing test coverage on important logic,
+              - a small refactor that removes real duplication or a footgun,
+              - an accessibility or UX gap in the components,
+              - a correctness issue or a stale/incorrect doc,
+              - a safe dependency update.
+
+            Rules:
+              - Exactly ONE logical change per run. Resist scope creep.
+              - `npm run lint`, `npm run test:run`, and `npm run build` must pass.
+              - The PR must explain why this change is worth making.
+              - If, after auditing, nothing is clearly worth changing this week,
+                open NO pull request and instead leave a brief comment-style
+                summary in the run log saying the codebase is in good shape.
+
+            Follow .github/AGENT_GUARDRAILS.md.
+          claude_args: "--max-turns 18"

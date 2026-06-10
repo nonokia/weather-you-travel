@@ -1,0 +1,75 @@
+name: Security autofix
+
+# When the Security scan fails (a high/critical advisory, a CodeQL alert, or a
+# leaked-secret detection), an agent triages the finding and opens a remediation
+# PR. Security response without a human in the critical path for triage — but
+# always with a human approving the merge.
+
+on:
+  workflow_run:
+    workflows: ["Security scan"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  security-events: read
+
+jobs:
+  remediate:
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_branch == 'master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Gather the security findings
+        run: |
+          npm ci
+          npm audit --json > /tmp/npm-audit.json 2>/dev/null || true
+          echo "----- npm audit summary -----"
+          npm audit || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          branch_prefix: "security-fix/"
+          prompt: |
+            The Security scan workflow failed on master (run id
+            ${{ github.event.workflow_run.id }}). Triage and remediate.
+
+            Investigate the findings:
+              - Dependency advisories: read /tmp/npm-audit.json and `npm audit`.
+              - Static analysis: check the repo's CodeQL alerts if relevant.
+              - Secrets: if a secret was flagged, do NOT just delete it from the
+                tip — treat it as compromised, remove it, and clearly flag in the
+                PR that the credential must be rotated by a human.
+
+            For dependency issues, apply the smallest fix that clears the
+            advisory (`npm audit fix`, a targeted version bump, or an override),
+            then run `npm ci`, `npm run lint`, `npm run test:run`, and
+            `npm run build` to prove nothing broke.
+
+            Open ONE PR per coherent finding-set that:
+              - names each advisory/alert and its severity,
+              - explains the chosen remediation and any breaking-change risk,
+              - lists any human follow-up required (e.g. secret rotation).
+
+            Follow .github/AGENT_GUARDRAILS.md. If a fix would require a major
+            version bump with breaking changes, open a DRAFT PR explaining the
+            trade-off instead of forcing it.
+          claude_args: "--max-turns 20"

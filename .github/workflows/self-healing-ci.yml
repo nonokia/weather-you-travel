@@ -1,0 +1,63 @@
+name: Self-healing CI
+
+# When CI fails on master, an agent investigates the failure and opens a PR with
+# a fix. It never pushes to master directly — the fix must pass CI and be
+# reviewed like any other change. This is the "the repo repairs itself" loop.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  heal:
+    # Only react to genuine failures on the default branch.
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_branch == 'master' &&
+      github.event.workflow_run.event != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: Capture the failed run's logs
+        run: |
+          gh run view ${{ github.event.workflow_run.id }} --log-failed > /tmp/ci-failure.log 2>&1 || \
+            gh run view ${{ github.event.workflow_run.id }} --log > /tmp/ci-failure.log 2>&1 || true
+          echo "----- captured $(wc -l < /tmp/ci-failure.log) lines of failing logs -----"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          branch_prefix: "auto-fix/"
+          prompt: |
+            CI failed on master (run id ${{ github.event.workflow_run.id }},
+            commit ${{ github.event.workflow_run.head_sha }}).
+
+            Read the failing logs at /tmp/ci-failure.log, reproduce the failure
+            locally (`npm ci`, then the relevant one of `npm run lint`,
+            `npm run test:run`, `npm run build`, `npm run test:e2e`), find the
+            ROOT CAUSE, and implement the smallest correct fix.
+
+            Then open a pull request targeting master that:
+              - explains the root cause and the fix in plain language,
+              - confirms which checks now pass locally,
+              - links to the failed run.
+
+            Follow .github/AGENT_GUARDRAILS.md strictly. In particular: fix the
+            source of the failure — do NOT delete, skip, or weaken tests to force
+            a green result. If you cannot find a safe fix, open the PR as a draft
+            describing exactly where you got stuck.
+          claude_args: "--max-turns 20"
