@@ -6,10 +6,26 @@ itself" never means "the repo can break or compromise itself unsupervised."
 
 ## The prime directive
 
-**Humans approve; agents propose.** No agent merges its own work. Every change
-an agent makes arrives as a pull request that must pass CI and receive human
-review before it reaches `master`. Branch protection enforces this — the agents
-have no path around it.
+**Humans approve; agents propose** — with one bounded, audited exception (below).
+Every change an agent makes arrives as a pull request that must pass CI before it
+reaches `master`. Branch protection blocks direct pushes — agents have no path
+around the gate.
+
+## Merge policy (which PRs may auto-merge)
+
+`auto-merge.yml` triages every PR into one of two lanes:
+
+- **Low-risk → autonomous merge.** A PR authored by the agent (`claude[bot]`)
+  whose changes are limited to **dependency metadata** (`package-lock.json`,
+  `package.json`) or **`docs/`** is auto-merged once required checks pass. These
+  are mechanical, well-verified changes (e.g. `security-autofix` dependency
+  patches) where CI is a sufficient gate.
+- **Everything else → human review.** Any PR that touches `src/`, `e2e/`,
+  tests, or `.github/` (and every human-authored PR) is labelled
+  `needs-human-review` and waits for a person to merge it. Code and workflow
+  changes always get human eyes.
+
+Add the **`hold`** label to any PR to suspend autonomous merging immediately.
 
 ## Scope of changes
 

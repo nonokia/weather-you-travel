@@ -1,0 +1,74 @@
+name: Auto-merge triage
+
+# Splits incoming PRs into two lanes (see .github/AGENT_GUARDRAILS.md → Merge
+# policy):
+#   - LOW-RISK  (agent-authored, only dependency metadata or docs) → auto-merge
+#                once required checks pass.
+#   - EVERYTHING ELSE (any source/config/workflow/test change, or a
+#                human-authored PR) → labelled `needs-human-review` and left for
+#                a person to merge.
+#
+# A human can always stop autonomous merging by adding the `hold` label.
+# Requires the repo setting Settings → General → "Allow auto-merge" to be on.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  triage:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Classify and route
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+
+          # Make sure the routing labels exist (idempotent).
+          gh label create automerge:safe       --color 0e8a16 --description "Low-risk; eligible for autonomous merge" --force >/dev/null 2>&1 || true
+          gh label create needs-human-review    --color d93f0b --description "Requires a human to review and merge"     --force >/dev/null 2>&1 || true
+
+          labels=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name')
+
+          # Human override: never auto-merge a held PR.
+          if grep -qx 'hold' <<<"$labels"; then
+            echo "PR #$PR has the 'hold' label — leaving for humans."
+            exit 0
+          fi
+
+          # Only the agent's own PRs are eligible for autonomous merge; humans
+          # merge their own PRs themselves.
+          if [ "$AUTHOR" != "claude[bot]" ]; then
+            echo "PR #$PR authored by '$AUTHOR' (not the agent) — manual merge."
+            exit 0
+          fi
+
+          # Low-risk iff every changed file is dependency metadata or docs.
+          safe=true
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              package-lock.json|package.json) ;;
+              docs/*) ;;
+              *) safe=false; echo "  out-of-policy change: $f" ;;
+            esac
+          done < <(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json files --jq '.files[].path')
+
+          if [ "$safe" = true ]; then
+            echo "PR #$PR is low-risk (deps/docs only) — enabling auto-merge."
+            gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --add-label automerge:safe --remove-label needs-human-review >/dev/null 2>&1 || true
+            gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --squash \
+              || echo "::warning::Could not enable auto-merge. Turn on 'Allow auto-merge' in Settings → General."
+          else
+            echo "PR #$PR touches code/config — routing to human review."
+            gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --add-label needs-human-review --remove-label automerge:safe >/dev/null 2>&1 || true
+          fi
