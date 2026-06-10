@@ -32,6 +32,11 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Uses your Claude Pro/Max subscription (the agent-credit pool from
+          # 2026-06-15). To switch to pay-as-you-go API billing instead, replace
+          # this line with: anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # NOTE: if BOTH secrets are set, the API key wins and you are billed
+          # at API rates — set only one.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           use_sticky_comment: true
-          claude_args: "--max-turns 12"
+          claude_args: "--max-turns 10"

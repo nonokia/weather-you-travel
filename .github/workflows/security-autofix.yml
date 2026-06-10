@@ -46,7 +46,8 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Subscription auth (see claude.yml for the API-key alternative).
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "security-fix/"
           prompt: |
             The Security scan workflow failed on master (run id
@@ -72,4 +73,4 @@ jobs:
             Follow .github/AGENT_GUARDRAILS.md. If a fix would require a major
             version bump with breaking changes, open a DRAFT PR explaining the
             trade-off instead of forcing it.
-          claude_args: "--max-turns 20"
+          claude_args: "--max-turns 12"

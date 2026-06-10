@@ -30,7 +30,8 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Subscription auth (see claude.yml for the API-key alternative).
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "self-improvement/"
           prompt: |
             Audit this codebase and propose ONE focused, high-value improvement,
@@ -53,4 +54,4 @@ jobs:
                 summary in the run log saying the codebase is in good shape.
 
             Follow .github/AGENT_GUARDRAILS.md.
-          claude_args: "--max-turns 18"
+          claude_args: "--max-turns 12"

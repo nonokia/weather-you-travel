@@ -84,31 +84,46 @@ This is what lets the action act as a GitHub identity (open PRs, comment).
 
 ### 2. Authentication — choose ONE
 
-The `claude-code-action` needs credentials. There are two options, and **the
-right choice depends on your Claude plan** (see the caveat below):
+The `claude-code-action` needs credentials. There are two options:
 
 | Option | Secret | Billing | Best for |
 |---|---|---|---|
-| **API key** | `ANTHROPIC_API_KEY` | Pay-as-you-go API credits | Reliable automation; long agentic runs that must not be interrupted |
-| **Subscription token** | `CLAUDE_CODE_OAUTH_TOKEN` | Your Claude Pro/Max plan | Hobby use; short tasks; avoiding separate API billing |
+| **Subscription token** | `CLAUDE_CODE_OAUTH_TOKEN` | Your Claude Pro/Max plan's **agent-credit pool** | Capped, predictable cost; observing consumption before committing |
+| **API key** | `ANTHROPIC_API_KEY` | Pay-as-you-go API credits | Uncapped throughput; long runs that must never be interrupted |
 
-> ⚠️ **Pro-plan caveat.** If you authenticate with a **Claude Pro** subscription
-> token, long autonomous runs can hit your plan's usage limit and **stop
-> mid-task**, leaving a half-finished PR. The agent workflows here use multi-turn
-> budgets (`--max-turns` 18–25) precisely because real fixes take several turns.
-> For dependable operation, prefer the **API key** (pay-as-you-go) — it bills per
-> token and won't be cut off by a subscription cap. If you stay on Pro:
-> - expect that bigger tasks (agent-build, incident-response) may be truncated,
-> - lower the `--max-turns` values in the workflows to fit a smaller budget,
-> - and/or pin a cheaper model in `claude_args` (e.g. `--model <fast-model-id>`).
->
-> The workflows ship configured for `ANTHROPIC_API_KEY`. To use a subscription
-> token instead, replace `anthropic_api_key:` with
-> `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}` in each
-> agent workflow. Generate the token locally with `claude setup-token`
-> (requires a Pro/Max plan).
+**The workflows ship configured for `CLAUDE_CODE_OAUTH_TOKEN`** (subscription).
+Generate the token locally with `claude setup-token` (requires Pro/Max) and add
+it under **Settings → Secrets and variables → Actions**.
 
-Add the chosen secret under **Settings → Secrets and variables → Actions**.
+> ⚠️ **Set only ONE secret.** If both `ANTHROPIC_API_KEY` and
+> `CLAUDE_CODE_OAUTH_TOKEN` are present, **the API key takes precedence and you
+> are billed at API rates** — which defeats the point of using the subscription.
+
+#### How billing works after 2026-06-15
+
+As of **June 15, 2026**, Anthropic splits subscription usage into two pools:
+
+- **Interactive pool** (unchanged): claude.ai chat, and Claude Code used
+  interactively in the terminal.
+- **Agent-credit pool** (new): programmatic/autonomous usage — including
+  **Claude Code GitHub Actions** — draws from a fixed monthly dollar credit,
+  metered at full API rates, **no rollover**. Roughly **$20/mo on Pro**,
+  ~$100 on Max 5x, ~$200 on Max 20x.
+
+For this demo that's actually convenient: on Pro, the agent workflows spend from
+a **capped ~$20/month** allowance, so you can watch real consumption without an
+open-ended API bill. When the pool is exhausted, agent runs stop until it resets
+(or until you add API billing). To stretch the pool further:
+
+- the workflows already use modest `--max-turns` budgets (10–15),
+- prefer triggering one workflow at a time while you gauge cost,
+- the two non-AI workflows (CI, security scan) cost nothing,
+- you can pin a cheaper/faster model via `claude_args` (`--model <id>`).
+
+To switch to **pay-as-you-go API billing** later, replace
+`claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}` with
+`anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` in each agent workflow
+(and remove the OAuth secret so it doesn't conflict).
 
 ### 3. Create the labels
 

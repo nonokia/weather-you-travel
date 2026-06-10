@@ -44,7 +44,8 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Subscription auth (see claude.yml for the API-key alternative).
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "incident-fix/"
           prompt: |
             A production incident was reported. The error details (stack trace,
@@ -69,4 +70,4 @@ jobs:
             information (repro steps, full stack trace, input) you need.
 
             Follow .github/AGENT_GUARDRAILS.md.
-          claude_args: "--max-turns 22"
+          claude_args: "--max-turns 15"

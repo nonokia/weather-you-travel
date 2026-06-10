@@ -40,7 +40,8 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Subscription auth (see claude.yml for the API-key alternative).
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "auto-fix/"
           prompt: |
             CI failed on master (run id ${{ github.event.workflow_run.id }},
@@ -60,4 +61,4 @@ jobs:
             source of the failure — do NOT delete, skip, or weaken tests to force
             a green result. If you cannot find a safe fix, open the PR as a draft
             describing exactly where you got stuck.
-          claude_args: "--max-turns 20"
+          claude_args: "--max-turns 12"
