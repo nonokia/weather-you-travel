@@ -99,6 +99,11 @@ it under **Settings → Secrets and variables → Actions**.
 > `CLAUDE_CODE_OAUTH_TOKEN` are present, **the API key takes precedence and you
 > are billed at API rates** — which defeats the point of using the subscription.
 
+> ℹ️ **`id-token: write` is required.** Every agent workflow's `permissions:`
+> block includes `id-token: write` — the action mints its GitHub token via OIDC
+> and fails with *"Could not fetch an OIDC token"* without it. This is already
+> set in the shipped workflows; keep it if you copy them elsewhere.
+
 #### How billing works after 2026-06-15
 
 As of **June 15, 2026**, Anthropic splits subscription usage into two pools:
