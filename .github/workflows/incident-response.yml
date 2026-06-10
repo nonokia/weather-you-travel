@@ -71,4 +71,4 @@ jobs:
             information (repro steps, full stack trace, input) you need.
 
             Follow .github/AGENT_GUARDRAILS.md.
-          claude_args: "--max-turns 15"
+          claude_args: "--max-turns 25"

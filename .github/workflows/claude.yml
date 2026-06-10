@@ -40,4 +40,4 @@ jobs:
           # at API rates — set only one.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           use_sticky_comment: true
-          claude_args: "--max-turns 10"
+          claude_args: "--max-turns 15"
