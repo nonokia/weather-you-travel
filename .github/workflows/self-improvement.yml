@@ -55,4 +55,4 @@ jobs:
                 summary in the run log saying the codebase is in good shape.
 
             Follow .github/AGENT_GUARDRAILS.md.
-          claude_args: "--max-turns 20"
+          claude_args: "--max-turns 20 --allowedTools Bash,Edit,Read,Write,Glob,Grep"

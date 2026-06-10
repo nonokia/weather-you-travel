@@ -74,4 +74,4 @@ jobs:
             If a secret was flagged: treat it as compromised, remove it, and
             flag in the PR that a human must rotate it. Follow
             .github/AGENT_GUARDRAILS.md.
-          claude_args: "--max-turns 30"
+          claude_args: "--max-turns 30 --allowedTools Bash,Edit,Read,Write,Glob,Grep"

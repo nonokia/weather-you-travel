@@ -104,6 +104,13 @@ it under **Settings → Secrets and variables → Actions**.
 > and fails with *"Could not fetch an OIDC token"* without it. This is already
 > set in the shipped workflows; keep it if you copy them elsewhere.
 
+> ℹ️ **The agent needs its tools allow-listed.** `claude-code-action` denies
+> tools by default, so each agent workflow passes
+> `--allowedTools Bash,Edit,Read,Write,Glob,Grep` in `claude_args`. Without
+> `Bash`, the agent can't run `npm` and burns its whole turn budget on denied
+> tool calls (the failure looks like *"Reached maximum number of turns"* with a
+> high `permission_denials_count`). Keep the allow-list if you copy these.
+
 #### How billing works after 2026-06-15
 
 As of **June 15, 2026**, Anthropic splits subscription usage into two pools:
