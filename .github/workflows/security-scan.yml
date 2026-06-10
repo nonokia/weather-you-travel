@@ -21,19 +21,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  codeql:
-    name: CodeQL (static analysis)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-      - uses: github/codeql-action/analyze@v3
+  # NOTE: CodeQL static analysis is handled by GitHub's *default* code-scanning
+  # setup (enabled in repo Settings → Code security). Running a second advanced
+  # CodeQL job here conflicts with it ("CodeQL job status was configuration
+  # error") and fails the scan, so we rely on the default setup instead.
 
   dependency-audit:
     name: npm audit
