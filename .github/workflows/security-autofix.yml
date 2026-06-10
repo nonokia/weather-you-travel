@@ -51,27 +51,27 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "security-fix/"
           prompt: |
-            The Security scan workflow failed on master (run id
-            ${{ github.event.workflow_run.id }}). Triage and remediate.
+            The Security scan failed on master (run id
+            ${{ github.event.workflow_run.id }}). Remediate the dependency
+            advisories efficiently — work directly, minimize exploration.
 
-            Investigate the findings:
-              - Dependency advisories: read /tmp/npm-audit.json and `npm audit`.
-              - Static analysis: check the repo's CodeQL alerts if relevant.
-              - Secrets: if a secret was flagged, do NOT just delete it from the
-                tip — treat it as compromised, remove it, and clearly flag in the
-                PR that the credential must be rotated by a human.
+            Recommended path (don't over-investigate):
+              1. Run `npm audit` to see the advisories.
+              2. Run `npm audit fix` (WITHOUT --force) to auto-resolve what's
+                 safe. Only hand-edit a version/override for advisories that
+                 `npm audit fix` leaves behind.
+              3. Verify in one pass: `npm ci`, `npm run lint`,
+                 `npm run test:run`, `npm run build`.
+              4. Open ONE PR summarizing the advisories fixed, their severity,
+                 and any breaking-change risk. List anything that still needs a
+                 human (e.g. advisories that only a major bump would fix).
 
-            For dependency issues, apply the smallest fix that clears the
-            advisory (`npm audit fix`, a targeted version bump, or an override),
-            then run `npm ci`, `npm run lint`, `npm run test:run`, and
-            `npm run build` to prove nothing broke.
+            Anything that requires a major-version bump with breaking changes:
+            do NOT force it — note it in the PR body for human follow-up and
+            move on. The goal is a clean, mergeable PR within your turn budget,
+            not zero remaining advisories.
 
-            Open ONE PR per coherent finding-set that:
-              - names each advisory/alert and its severity,
-              - explains the chosen remediation and any breaking-change risk,
-              - lists any human follow-up required (e.g. secret rotation).
-
-            Follow .github/AGENT_GUARDRAILS.md. If a fix would require a major
-            version bump with breaking changes, open a DRAFT PR explaining the
-            trade-off instead of forcing it.
-          claude_args: "--max-turns 12"
+            If a secret was flagged: treat it as compromised, remove it, and
+            flag in the PR that a human must rotate it. Follow
+            .github/AGENT_GUARDRAILS.md.
+          claude_args: "--max-turns 30"

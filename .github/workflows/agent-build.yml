@@ -52,4 +52,4 @@ jobs:
             Follow .github/AGENT_GUARDRAILS.md. If the request is ambiguous or too
             large for one focused PR, implement the clearest useful slice and note
             in the PR what you deferred and why — do not guess wildly.
-          claude_args: "--max-turns 15"
+          claude_args: "--max-turns 30"

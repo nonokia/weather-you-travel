@@ -120,7 +120,9 @@ a **capped ~$20/month** allowance, so you can watch real consumption without an
 open-ended API bill. When the pool is exhausted, agent runs stop until it resets
 (or until you add API billing). To stretch the pool further:
 
-- the workflows already use modest `--max-turns` budgets (10–15),
+- the workflows use right-sized `--max-turns` budgets (15–30) — enough to
+  finish the task in one run (a too-low cap still bills for the turns it spends
+  but produces nothing, so it's false economy),
 - prefer triggering one workflow at a time while you gauge cost,
 - the two non-AI workflows (CI, security scan) cost nothing,
 - you can pin a cheaper/faster model via `claude_args` (`--model <id>`).
