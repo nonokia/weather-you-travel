@@ -47,6 +47,7 @@ self-healing safe.** A green build is the contract every agent is held to.
     ci.yml                    # quality gate (no AI)
     security-scan.yml         # CodeQL + npm audit + gitleaks + dep review (no AI)
     claude.yml                # interactive @claude
+    pr-review.yml             # read-only agent review on each PR
     self-healing-ci.yml       # CI failure  -> fix PR
     agent-build.yml           # labeled issue -> feature PR
     self-improvement.yml      # weekly cron -> improvement PR
