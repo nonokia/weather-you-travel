@@ -26,7 +26,7 @@
 
   Verify: `npx vitest run src/utils/flightValidation.test.js` passes with all cases green.
 
-- [ ] **Task 3 — Add i18n keys to `src/locales/en/translation.json`**
+- [x] **Task 3 — Add i18n keys to `src/locales/en/translation.json`**
 
   Add one key to the English locale file:
 
