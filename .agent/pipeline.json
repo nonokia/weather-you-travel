@@ -1,7 +1,7 @@
 {
   "issue": 15,
   "change": "validate-flight-number-input",
-  "phase": "constitution",
+  "phase": "implement",
   "status": "in_progress",
   "attempts": {},
   "pr": null
