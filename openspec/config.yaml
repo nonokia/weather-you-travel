@@ -1,0 +1,19 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+context: |
+  React + Vite の天気アプリ。便名から目的地の天気を表示。
+  データ層は src/services/api.js（実API＋モックのフォールバック）。
+  詳細は CLAUDE.md。
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
