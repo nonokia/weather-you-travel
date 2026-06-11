@@ -47,4 +47,20 @@
 - `TASKS.md`: タスクの進捗管理。
 - `ROADMAP.md`: 長期的なゴール。
 
+## 5. 自律ビルドパイプライン (agent-build)
+Issue に `agent:build` ラベルを付けると、フェーズ分割されたエージェントパイプラインが起動する
+（詳細は `docs/AUTONOMOUS_SYSTEM.md`）。
+
+- **フェーズ**: ①propose（OpenSpecでスペック＋小粒タスクのチェックリスト作成）→
+  ②constitution（別セッションのエージェントが `.github/AGENT_GUARDRAILS.md`＝憲法と照合し
+  `VERDICT: approved/rejected` を判定）→ ③implement（1セッション最大3タスクずつ実装し、
+  次チャンクを自動起動）→ 全タスク完了で PR 作成。
+- **チェックポイント**: 作業ブランチ `agent-build/issue-<N>` 上の `.agent/pipeline.json`
+  （フェーズ・状態・試行回数）と `openspec/changes/<name>/tasks.md` のチェックボックス。
+  フェーズ遷移はワークフローが決定論的に更新する（エージェント任せにしない）。
+- **中断・再開**: 利用制限などでセッションが死んでも、`agent-resume.yml`（2時間毎・AIコストゼロ）
+  が `in_progress` のパイプラインを再投入し、続きから再開する。同一フェーズで6回失敗すると
+  `blocked` になり Issue にコメントされる。`agent:build` ラベルの付け直しでリセット＆再開
+  （rejected の場合は REVIEW.md の指摘を反映して propose からやり直し）。
+
 このファイルを「コンテキスト」として読み込むことで、どのエージェントもプロジェクトの全容を理解して作業を開始できます。

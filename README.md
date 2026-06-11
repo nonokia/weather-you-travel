@@ -28,7 +28,7 @@ flowchart TD
     end
 
     subgraph Agents["Claude agents — propose, never merge"]
-        A1["agent-build: implement feature"]
+        A1["agent-build pipeline: spec → constitution check → chunked implement"]
         A2["self-healing-ci: diagnose & fix CI"]
         A3["security-autofix: remediate advisory"]
         A4["incident-response: root-cause + fix"]
@@ -69,7 +69,8 @@ the remediation agent. The system reacts to its own state.
 | [`claude.yml`](.github/workflows/claude.yml) | `@claude` mention | Interactive assistant on issues & PRs |
 | [`pr-review.yml`](.github/workflows/pr-review.yml) | PR opened/reopened | Read-only agent review: correctness, security, test gaps (inline comments) |
 | [`self-healing-ci.yml`](.github/workflows/self-healing-ci.yml) | CI fails on `master` | Reads the failing logs, finds the root cause, opens a fix PR |
-| [`agent-build.yml`](.github/workflows/agent-build.yml) | issue labeled `agent:build` | Designs + implements the request with tests, opens a PR |
+| [`agent-build.yml`](.github/workflows/agent-build.yml) | issue labeled `agent:build` | Resumable phased pipeline: OpenSpec spec → constitution check → chunked implementation (≤3 tasks per session) → PR. Checkpointed on the branch after every step |
+| [`agent-resume.yml`](.github/workflows/agent-resume.yml) | every 2 h (cron) | Re-dispatches interrupted pipelines from their last checkpoint — e.g. after a subscription session limit resets *(no AI)* |
 | [`self-improvement.yml`](.github/workflows/self-improvement.yml) | weekly cron | Audits the codebase, opens **one** focused improvement PR |
 | [`security-scan.yml`](.github/workflows/security-scan.yml) | push / PR / daily | CodeQL, `npm audit`, gitleaks secret scan, dependency review |
 | [`security-autofix.yml`](.github/workflows/security-autofix.yml) | security scan fails | Triages the finding, opens a remediation PR (flags secrets for rotation) |
@@ -103,6 +104,11 @@ The hard part of "let AI maintain my repo" isn't getting an agent to write code
 5. **Untrusted input is handled as untrusted.** E.g. incident payloads are
    passed via `env`, never interpolated into a shell — see the
    [hardening note](.github/workflows/incident-response.yml).
+6. **Plans are reviewed before code is written.** The build pipeline's
+   constitution-check phase has an independent agent judge every spec against
+   the guardrails — and every phase commits a checkpoint, so an interrupted
+   session (usage limits happen on a subscription plan) resumes instead of
+   restarting.
 
 ---
 
