@@ -15,7 +15,7 @@
 
   Verify: file exists and exports `isValidFlightNumber`.
 
-- [ ] **Task 2 — Add unit tests in `src/utils/flightValidation.test.js`**
+- [x] **Task 2 — Add unit tests in `src/utils/flightValidation.test.js`**
 
   Create `src/utils/flightValidation.test.js` with `describe('isValidFlightNumber', ...)` covering:
 
