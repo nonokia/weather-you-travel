@@ -7,6 +7,13 @@ name: Agent PR review
 # Runs once when a PR is opened/reopened/marked ready — deliberately NOT on
 # every push (`synchronize`), to conserve the agent-credit pool. To re-review
 # after changes, close/reopen the PR or mention @claude.
+#
+# NOTE: PRs that modify `.github/workflows/**` are skipped. GitHub refuses to
+# mint the review app-token (via OIDC) for a PR whose workflow files differ
+# from the default branch — a security measure against a PR rewriting a
+# workflow to capture the token. The action fails with "Workflow validation
+# failed" on such PRs, so we detect that case and skip cleanly (those PRs get
+# human review anyway).
 
 on:
   pull_request:
@@ -30,7 +37,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: anthropics/claude-code-action@v1
+      - name: Skip review when the PR modifies workflows
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json files --jq '.files[].path' \
+               | grep -qE '^\.github/workflows/'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::PR changes .github/workflows/**; GitHub won't mint the review app-token for workflow-modifying PRs. Skipping the agent review (this PR gets human review)."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.guard.outputs.skip == 'false'
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # agent-build opens PRs authored by a bot, so this review run is
