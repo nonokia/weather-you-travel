@@ -172,6 +172,11 @@ jobs:
         with:
           # Subscription auth (see claude.yml for the API-key alternative).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The self-chained next chunk and the agent-resume sweeper dispatch
+          # this workflow via GITHUB_TOKEN, so the run's actor is a bot.
+          # claude-code-action refuses bot-initiated runs unless allow-listed;
+          # the pipeline's real gate is the trigger (label / workflow_dispatch).
+          allowed_bots: "*"
           prompt: |
             You are the PROPOSE phase of this repository's phased agent-build
             pipeline. A later, separate agent session will review your spec
@@ -311,6 +316,11 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The self-chained next chunk and the agent-resume sweeper dispatch
+          # this workflow via GITHUB_TOKEN, so the run's actor is a bot.
+          # claude-code-action refuses bot-initiated runs unless allow-listed;
+          # the pipeline's real gate is the trigger (label / workflow_dispatch).
+          allowed_bots: "*"
           prompt: |
             You are the CONSTITUTION-CHECK phase of this repository's phased
             agent-build pipeline: an INDEPENDENT reviewer. A different agent
@@ -473,6 +483,11 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The self-chained next chunk and the agent-resume sweeper dispatch
+          # this workflow via GITHUB_TOKEN, so the run's actor is a bot.
+          # claude-code-action refuses bot-initiated runs unless allow-listed;
+          # the pipeline's real gate is the trigger (label / workflow_dispatch).
+          allowed_bots: "*"
           prompt: |
             You are ONE IMPLEMENTATION CHUNK of this repository's phased
             agent-build pipeline. The spec was approved by a previous review
