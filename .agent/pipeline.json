@@ -1,7 +1,7 @@
 {
   "issue": 15,
-  "change": "",
-  "phase": "propose",
+  "change": "validate-flight-number-input",
+  "phase": "constitution",
   "status": "in_progress",
   "attempts": {},
   "pr": null
