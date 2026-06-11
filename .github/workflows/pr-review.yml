@@ -33,6 +33,9 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # agent-build opens PRs authored by a bot, so this review run is
+          # bot-initiated; allow it (claude-code-action blocks bots by default).
+          allowed_bots: "*"
           use_sticky_comment: true
           prompt: |
             Review pull request #${{ github.event.pull_request.number }}

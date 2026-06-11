@@ -43,6 +43,9 @@ jobs:
         with:
           # Subscription auth (see claude.yml for the API-key alternative).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Triggered by workflow_run, whose actor can be a bot; allow it
+          # (claude-code-action blocks bot-initiated runs by default).
+          allowed_bots: "*"
           branch_prefix: "auto-fix/"
           prompt: |
             CI failed on master (run id ${{ github.event.workflow_run.id }},

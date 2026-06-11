@@ -33,6 +33,9 @@ jobs:
         with:
           # Subscription auth (see claude.yml for the API-key alternative).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Triggered by cron, so the run's actor is a bot; allow it
+          # (claude-code-action blocks bot-initiated runs by default).
+          allowed_bots: "*"
           branch_prefix: "self-improvement/"
           prompt: |
             Audit this codebase and propose ONE focused, high-value improvement,
