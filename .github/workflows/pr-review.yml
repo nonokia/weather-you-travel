@@ -1,0 +1,55 @@
+name: Agent PR review
+
+# An agent reviews each new PR for correctness, security, and test gaps, and
+# leaves inline comments. Read-only: it can run commands and read files, but is
+# NOT given Edit/Write — it comments, it does not change code.
+#
+# Runs once when a PR is opened/reopened/marked ready — deliberately NOT on
+# every push (`synchronize`), to conserve the agent-credit pool. To re-review
+# after changes, close/reopen the PR or mention @claude.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write   # required by claude-code-action to mint a GitHub token via OIDC
+
+jobs:
+  review:
+    if: >
+      github.event.pull_request.draft == false &&
+      !contains(toJSON(github.event.pull_request.labels.*.name), 'skip-review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          use_sticky_comment: true
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }}
+            ("${{ github.event.pull_request.title }}") on this repository.
+
+            Look at the PR diff (e.g. `git diff origin/${{ github.event.pull_request.base.ref }}...HEAD`)
+            and review ONLY for things that matter:
+              - correctness bugs and logic errors,
+              - security issues,
+              - missing or inadequate test coverage for new behavior,
+              - the .github/AGENT_GUARDRAILS.md red flags: tests weakened or
+                deleted, secrets committed, changes outside the PR's stated scope.
+
+            Do NOT nitpick style or formatting. Leave concise inline comments on
+            the specific lines, each with a concrete suggested fix. If the PR is
+            clean, post a single short "LGTM" summary comment naming what you
+            checked.
+
+            You are a REVIEWER: do not modify any code. Comment only.
+          claude_args: "--max-turns 12 --allowedTools Bash,Read,Glob,Grep"
