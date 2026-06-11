@@ -34,7 +34,8 @@ if [ "$attempts" -ge "$MAX_ATTEMPTS_PER_PHASE" ]; then
   jq --arg p "$PHASE" --argjson n "$attempts" \
     '.attempts[$p] = $n | .status = "blocked"' \
     .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
-  git commit -am "pipeline: blocked after ${attempts} failed attempts at ${PHASE} (#${ISSUE})"
+  git add .agent/pipeline.json
+  git commit -m "pipeline: blocked after ${attempts} failed attempts at ${PHASE} (#${ISSUE})"
   git push origin "$BRANCH"
   gh issue comment "$ISSUE" --body "🛑 **agent-build pipeline blocked**: the \`${PHASE}\` phase failed ${attempts} times in a row, so automatic retries have stopped. Check the [workflow runs](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/agent-build.yml) for the cause (a usage-limit outage just needs a retry; a real error may need the issue clarified). Re-add the \`agent:build\` label to reset the counters and resume from the last checkpoint."
   echo "Pipeline for #${ISSUE} is now blocked (phase ${PHASE}, attempt ${attempts})."
@@ -42,7 +43,8 @@ else
   jq --arg p "$PHASE" --argjson n "$attempts" \
     '.attempts[$p] = $n' \
     .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
-  git commit -am "pipeline: failed attempt ${attempts}/${MAX_ATTEMPTS_PER_PHASE} at ${PHASE} (#${ISSUE})"
+  git add .agent/pipeline.json
+  git commit -m "pipeline: failed attempt ${attempts}/${MAX_ATTEMPTS_PER_PHASE} at ${PHASE} (#${ISSUE})"
   git push origin "$BRANCH"
   echo "Recorded failed attempt ${attempts}/${MAX_ATTEMPTS_PER_PHASE} at ${PHASE}; the resume sweeper will retry."
 fi

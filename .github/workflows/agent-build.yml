@@ -99,7 +99,8 @@ jobs:
               tmp="$(mktemp)"
               jq --arg p "$phase" '.status = "in_progress" | .phase = $p | .attempts = {}' \
                 .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
-              git commit -am "pipeline: reset after ${status} (#${ISSUE})"
+              git add .agent/pipeline.json
+              git commit -m "pipeline: reset after ${status} (#${ISSUE})"
               git push origin "$BRANCH"
               echo "Reset pipeline for #${ISSUE} (was ${status}) — resuming at ${phase}."
             elif [ "$status" != "in_progress" ]; then
@@ -112,14 +113,19 @@ jobs:
             echo "No pipeline branch yet — starting fresh at propose."
           fi
 
+          # The issue body is user-controlled, so the heredoc delimiter must be
+          # unguessable: a body line equal to a fixed delimiter could otherwise
+          # close `body` early and inject extra output keys (e.g. override
+          # `phase`). Derive it from the run id plus a random nonce.
+          delim="ISSUE_BODY_${GITHUB_RUN_ID}_${RANDOM}${RANDOM}"
           {
             echo "issue=${ISSUE}"
             echo "branch=${BRANCH}"
             echo "phase=${phase}"
             echo "title=$(gh issue view "$ISSUE" --json title --jq .title)"
-            echo "body<<__ISSUE_BODY__"
+            echo "body<<${delim}"
             gh issue view "$ISSUE" --json body --jq .body
-            echo "__ISSUE_BODY__"
+            echo "${delim}"
           } >> "$GITHUB_OUTPUT"
 
   propose:
@@ -219,12 +225,18 @@ jobs:
           git checkout -f -B "$BRANCH" "origin/${BRANCH}"
           git clean -fd
 
-          change="$(git diff --name-only "origin/master...HEAD" -- 'openspec/changes/' \
-            | awk -F/ '{print $3}' | grep -v '^archive$' | sort -u | head -n1 || true)"
-          if [ -z "$change" ]; then
+          changes="$(git diff --name-only "origin/master...HEAD" -- 'openspec/changes/' \
+            | awk -F/ '{print $3}' | grep -v '^archive$' | sort -u)"
+          count="$(printf '%s\n' "$changes" | grep -c . || true)"
+          if [ "$count" -eq 0 ]; then
             echo "::error::Propose phase pushed no openspec/changes/<name>/ — counting as a failed attempt."
             exit 1
+          elif [ "$count" -ne 1 ]; then
+            echo "::error::Propose phase created ${count} change directories; expected exactly one. Found:"
+            printf '  %s\n' $changes
+            exit 1
           fi
+          change="$changes"
           for f in proposal.md tasks.md; do
             if [ ! -f "openspec/changes/${change}/${f}" ]; then
               echo "::error::Spec is missing openspec/changes/${change}/${f}."
@@ -237,7 +249,8 @@ jobs:
           tmp="$(mktemp)"
           jq --arg c "$change" '.change = $c | .phase = "constitution"' \
             .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
-          git commit -am "pipeline: spec '${change}' proposed — advance to constitution (#${ISSUE})"
+          git add .agent/pipeline.json
+          git commit -m "pipeline: spec '${change}' proposed — advance to constitution (#${ISSUE})"
           git push origin "$BRANCH"
 
       - name: Record failed attempt
@@ -354,11 +367,13 @@ jobs:
           case "$verdict" in
             approved)
               jq '.phase = "implement"' .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
-              git commit -am "pipeline: constitution check passed — advance to implement (#${ISSUE})"
+              git add .agent/pipeline.json
+              git commit -m "pipeline: constitution check passed — advance to implement (#${ISSUE})"
               ;;
             rejected)
               jq '.status = "rejected"' .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
-              git commit -am "pipeline: constitution check rejected the spec (#${ISSUE})"
+              git add .agent/pipeline.json
+              git commit -m "pipeline: constitution check rejected the spec (#${ISSUE})"
               ;;
             *)
               echo "::error::REVIEW.md has no parsable 'VERDICT:' first line."
@@ -516,7 +531,8 @@ jobs:
             tmp="$(mktemp)"
             jq --argjson pr "$pr" '.phase = "done" | .status = "pr_opened" | .pr = $pr' \
               .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
-            git commit -am "pipeline: complete — PR #${pr} opened (#${ISSUE})"
+            git add .agent/pipeline.json
+            git commit -m "pipeline: complete — PR #${pr} opened (#${ISSUE})"
             git push origin "$BRANCH"
             echo "Pipeline complete: PR #${pr} is open and awaiting review."
           elif [ "$unchecked" -lt "$BEFORE" ]; then
