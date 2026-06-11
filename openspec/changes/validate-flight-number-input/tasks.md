@@ -52,35 +52,42 @@
 
 - [ ] **Task 5 — Wire validation into `App.handleSearch` in `src/App.jsx`**
 
-  1. Import `isValidFlightNumber` from `'./utils/flightValidation'`.
-  2. At the top of `handleSearch`, before `setLoading(true)`, validate the departure flight number:
+  The current `handleSearch` body begins (lines 19–20):
+  ```js
+  setLoading(true);
+  setError('');
+  ```
+
+  Rewrite the top of `handleSearch` so the final order is:
+
+  1. `setError('')` — clear any previous error (move it to the very top)
+  2. `isValidFlightNumber` check for departure flight (new)
+  3. `isValidFlightNumber` check for return flight when present (new)
+  4. `setLoading(true)` — only reached when both inputs are valid
+
+  Specifically:
+
+  1. Import `isValidFlightNumber` from `'./utils/flightValidation'` at the top of the file.
+  2. Replace the opening of `handleSearch` with:
 
      ```js
+     setError('');
      if (!isValidFlightNumber(depFlightNum)) {
        setError(t('invalidFlightNumber'));
        return;
      }
-     ```
-
-  3. After that check, if `retFlightNum` is truthy, validate it too:
-
-     ```js
      if (retFlightNum && !isValidFlightNumber(retFlightNum)) {
        setError(t('invalidFlightNumber'));
        return;
      }
+     setLoading(true);
      ```
 
-  4. Add a `setError('')` call at the very start of the `try` block (it is
-     already there — confirm it clears previous validation errors too, or move
-     the `setError('')` to just before `setLoading(true)` if not already in
-     that position).
+  3. Remove the original `setError('');` that previously appeared after `setLoading(true)` (it is now at the top).
 
   Touch only: `src/App.jsx`.
 
-  Verify: manually confirm (or via App.test.jsx assertions) that submitting
-  `''` or `'X!!'` never calls `getFlightDetails`, and the error div text
-  matches the `invalidFlightNumber` translation key.
+  Verify: submitting `''` or `'X!!'` never calls `getFlightDetails` and the error div text matches the `invalidFlightNumber` translation key. An empty return flight value (blank string or omitted) must NOT trigger validation.
 
 - [ ] **Task 6 — Run quality checks and fix any fallout**
 
