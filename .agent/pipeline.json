@@ -3,6 +3,8 @@
   "change": "validate-flight-number-input",
   "phase": "implement",
   "status": "in_progress",
-  "attempts": {},
+  "attempts": {
+    "implement": 1
+  },
   "pr": null
 }
