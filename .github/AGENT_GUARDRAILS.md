@@ -4,6 +4,10 @@ Every autonomous workflow in this repository points Claude at this file. These
 are the rules the agents operate under. They exist so that "the repo maintains
 itself" never means "the repo can break or compromise itself unsupervised."
 
+This document is also the **constitution** of the `agent-build` pipeline: its
+constitution-check phase judges every proposed spec against these rules, and a
+spec that violates them is rejected before any implementation starts.
+
 ## The prime directive
 
 **Humans approve; agents propose** — with one bounded, audited exception (below).

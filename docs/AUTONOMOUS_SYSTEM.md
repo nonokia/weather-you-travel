@@ -42,14 +42,18 @@ self-healing safe.** A green build is the contract every agent is held to.
 
 ```
 .github/
-  AGENT_GUARDRAILS.md         # the rules every agent prompt references
+  AGENT_GUARDRAILS.md         # the rules every agent prompt references (the "constitution")
+  scripts/
+    pipeline-record-failure.sh # shared checkpoint-on-failure handler
   workflows/
     ci.yml                    # quality gate (no AI)
-    security-scan.yml         # CodeQL + npm audit + gitleaks + dep review (no AI)
+    security-scan.yml         # npm audit + gitleaks + dep review (no AI)
+    auto-merge.yml            # risk-based PR triage (no AI)
+    agent-resume.yml          # re-dispatches interrupted pipelines (no AI)
     claude.yml                # interactive @claude
     pr-review.yml             # read-only agent review on each PR
     self-healing-ci.yml       # CI failure  -> fix PR
-    agent-build.yml           # labeled issue -> feature PR
+    agent-build.yml           # labeled issue -> phased, resumable pipeline -> PR
     self-improvement.yml      # weekly cron -> improvement PR
     security-autofix.yml      # scan failure -> remediation PR
     incident-response.yml     # runtime error -> RCA + fix PR
@@ -58,11 +62,13 @@ docs/
   CASE_STUDIES/               # log of what agents actually shipped
 ```
 
-The two `*-scan`/`ci` workflows are plain automation (no model). The five agent
+Four workflows are plain automation (no model): the CI gate, the security
+scan, the auto-merge triage, and the pipeline-resume sweeper. The agent
 workflows all invoke `anthropics/claude-code-action@v1`, pass it a focused
 `prompt`, and point it at `AGENT_GUARDRAILS.md`. Each runs with a `--max-turns`
-budget and opens a PR on a namespaced branch (`auto-fix/`, `agent-build/`,
-`security-fix/`, `incident-fix/`, `self-improvement/`).
+budget and opens a PR on a namespaced branch (`auto-fix/`,
+`agent-build/issue-<n>`, `security-fix/`, `incident-fix/`,
+`self-improvement/`).
 
 ### Trigger model
 
@@ -71,8 +77,89 @@ budget and opens a PR on a namespaced branch (`auto-fix/`, `agent-build/`,
 | `issues` (labeled) | agent-build, incident-response | label-gated so arbitrary issues don't spend budget |
 | `issue_comment` / review comment | claude | `@claude` mention |
 | `workflow_run` (completed→failure) | self-healing-ci, security-autofix | reacts to the gate's own result |
-| `schedule` (cron) | self-improvement | weekly, one PR |
+| `schedule` (cron) | self-improvement, agent-resume | weekly improvement PR; 2-hourly pipeline resume sweep |
 | `repository_dispatch` | incident-response | external error monitor → `incident` event |
+| `workflow_dispatch` (self-chain) | agent-build | each implementation chunk dispatches the next as a fresh session |
+
+---
+
+## The build pipeline: checkpointed phases
+
+`agent-build.yml` is not one long agent run; it is a **pipeline of small,
+independent agent sessions** with a committed checkpoint between every step.
+This exists because of a hard operational lesson: on a subscription plan, a
+long autonomous session can die mid-way on the **session limit**, and a
+monolithic run loses *everything* when that happens.
+
+```
+issue + agent:build
+   │
+   ▼
+[propose]      one session writes an OpenSpec change:
+   │           proposal.md + tasks.md (small, self-contained tasks)
+   ▼
+[constitution] a SEPARATE session reviews the spec against
+   │           AGENT_GUARDRAILS.md + CLAUDE.md + the issue itself
+   │           → REVIEW.md with `VERDICT: approved | rejected`
+   │           (rejected → pipeline stops, findings commented on the issue)
+   ▼
+[implement]    each session completes AT MOST 3 tasks, committing and
+   │  ⟲        pushing after every task, then the workflow dispatches the
+   │           next chunk as a fresh session (workflow_dispatch self-chain)
+   ▼
+[PR]           when tasks.md is fully checked: verify lint/test/build,
+               open the PR (closes the issue) → human review as usual
+```
+
+### The branch is the checkpoint
+
+Each pipeline lives on `agent-build/issue-<n>`:
+
+- **`.agent/pipeline.json`** — `{issue, change, phase, status, attempts, pr}`.
+  Phase transitions are made by deterministic workflow steps (`jq`), never by
+  the model, so the recorded state can't drift from reality.
+- **`openspec/changes/<name>/tasks.md`** — the checked/unchecked boxes ARE the
+  implementation progress.
+- Agent sessions push after every task, so a dying session loses at most one
+  small unit of work.
+
+Why commit state to the branch instead of relying on run artifacts? Committed
+state **survives anything**, is **reviewable** (the PR shows the full audit
+trail: spec, review verdict, per-task commits), and resuming is just a
+`git fetch` — no cross-run artifact lookup, no retention expiry. Each phase
+*also* uploads the checkpoint as a run artifact, but purely for visibility on
+the run page.
+
+### Resume after an interruption
+
+`agent-resume.yml` sweeps every two hours (no model, zero agent-credit cost):
+any `agent-build/issue-*` branch whose checkpoint says `in_progress` gets
+re-dispatched, and the pipeline's `context` job re-derives the phase from the
+checkpoint and continues **from where it stopped**. A session-limit outage
+therefore costs only time: the pipeline picks itself back up once the limit
+resets.
+
+Failure accounting: every failed phase run commits `attempts.<phase>+1` to the
+checkpoint. After 6 failures in one phase the pipeline marks itself `blocked`
+and comments on the issue — at that point a human decides (a real bug in the
+request needs the issue clarified; an exhausted monthly credit pool just needs
+patience). **Re-adding the `agent:build` label resets the counters and
+resumes**; for a `rejected` spec it restarts at propose, where the next
+propose session is instructed to address every finding in `REVIEW.md`.
+
+A per-issue `concurrency` group keeps duplicate dispatches (self-chain +
+sweeper) from ever running in parallel; the checkpoint makes re-runs
+idempotent, so a duplicate is just a cheap no-op.
+
+### Why a separate constitution check?
+
+The spec author and the spec reviewer are **different sessions with different
+prompts** — the reviewer is told to distrust and verify, and it may only write
+`REVIEW.md`. This catches scope creep, forbidden-path edits, and missing test
+plans *before* any implementation budget is spent, and it produces a written
+verdict on the issue that a human can audit. It is the same
+"agents propose, a gate disposes" idea applied one level earlier: to the plan
+instead of the code.
 
 ---
 
@@ -128,9 +215,12 @@ a **capped ~$20/month** allowance, so you can watch real consumption without an
 open-ended API bill. When the pool is exhausted, agent runs stop until it resets
 (or until you add API billing). To stretch the pool further:
 
-- the workflows use right-sized `--max-turns` budgets (15–30) — enough to
+- the workflows use right-sized `--max-turns` budgets (10–30) — enough to
   finish the task in one run (a too-low cap still bills for the turns it spends
-  but produces nothing, so it's false economy),
+  but produces nothing, so it's false economy); the build pipeline goes
+  further and splits work into several small sessions with committed
+  checkpoints, so a session-limit interruption never wastes what was already
+  done,
 - prefer triggering one workflow at a time while you gauge cost,
 - the two non-AI workflows (CI, security scan) cost nothing,
 - you can pin a cheaper/faster model via `claude_args` (`--model <id>`).

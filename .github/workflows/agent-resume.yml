@@ -1,0 +1,59 @@
+name: Agent pipeline resume
+
+# The checkpoint/resume safety net for the agent-build pipeline. Every two
+# hours it scans for pipeline branches (`agent-build/issue-*`) whose committed
+# checkpoint (`.agent/pipeline.json`) says `in_progress` and re-dispatches the
+# pipeline for them. A pipeline that died mid-way — most importantly when the
+# Claude subscription hits its session limit — therefore continues from its
+# last checkpoint automatically once the limit resets, instead of being lost.
+#
+# This workflow invokes NO model: a sweep costs nothing from the agent-credit
+# pool. Pipelines that are `blocked`, `rejected`, or `pr_opened` are skipped —
+# those need a human (re-add the `agent:build` label to reset/retry).
+# Duplicate dispatches are harmless: the pipeline's per-issue concurrency
+# group collapses them, and the context job re-derives the phase from the
+# checkpoint, so a re-run of a finished pipeline is a cheap no-op.
+
+on:
+  schedule:
+    - cron: "41 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Re-dispatch in-flight pipelines
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/agent-build/*:refs/remotes/origin/agent-build/*' 2>/dev/null || true
+
+          dispatched=0
+          for ref in $(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/agent-build/issue-*'); do
+            branch="${ref#origin/}"
+            issue="${branch#agent-build/issue-}"
+            state="$(git show "${ref}:.agent/pipeline.json" 2>/dev/null || true)"
+            if [ -z "$state" ]; then
+              echo "Skipping ${branch}: no checkpoint file."
+              continue
+            fi
+            status="$(jq -r '.status // empty' <<<"$state")"
+            if [ "$status" = "in_progress" ]; then
+              phase="$(jq -r '.phase // "?"' <<<"$state")"
+              echo "Re-dispatching pipeline for issue #${issue} (phase: ${phase})."
+              gh workflow run agent-build.yml -f issue_number="$issue"
+              dispatched=$((dispatched + 1))
+            else
+              echo "Skipping issue #${issue} (status: ${status})."
+            fi
+          done
+          echo "Dispatched ${dispatched} pipeline run(s)."

@@ -1,28 +1,158 @@
-name: Agent build (issue to PR)
+name: Agent build pipeline (issue to PR, resumable)
 
-# File an issue describing what you want, add the `agent:build` label, and an
-# agent designs and implements it, then opens a PR. "Write the intent; the
-# system writes the code."
+# File an issue describing what you want, add the `agent:build` label, and a
+# PHASED agent pipeline implements it:
+#
+#   1. propose       — an agent writes an OpenSpec change: proposal.md plus a
+#                      tasks.md checklist of small, self-contained tasks.
+#   2. constitution  — a SEPARATE agent session reviews the spec against this
+#                      repo's constitution (.github/AGENT_GUARDRAILS.md,
+#                      CLAUDE.md, and the issue itself). Rejected specs stop
+#                      the pipeline with a comment on the issue.
+#   3. implement     — chunked implementation: each agent session completes at
+#                      most 3 tasks, committing and pushing after every task,
+#                      then the workflow re-dispatches itself for the next
+#                      chunk. When tasks.md is fully checked, the final session
+#                      verifies lint/test/build and opens the PR.
+#
+# CHECKPOINT / RESUME: the pipeline branch (`agent-build/issue-<n>`) IS the
+# checkpoint. `.agent/pipeline.json` records the phase/status/attempts and
+# tasks.md's checkboxes record implementation progress — all committed, so a
+# run that dies mid-way (e.g. the Claude subscription hits its session limit)
+# loses at most one small session. `agent-resume.yml` re-dispatches in-flight
+# pipelines on a schedule, so work continues automatically once the limit
+# resets, from where it left off instead of starting over.
+#
+# Phase transitions are made by deterministic workflow steps (jq), never by
+# the agent itself. A phase that fails MAX_ATTEMPTS_PER_PHASE times marks the
+# pipeline `blocked` and comments on the issue; re-adding the `agent:build`
+# label resets it.
 
 on:
   issues:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number of the pipeline to start or resume"
+        required: true
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
+  actions: write    # the implement phase re-dispatches this workflow between chunks
   id-token: write   # required by claude-code-action to mint a GitHub token via OIDC
 
+# One pipeline per issue at a time; extra dispatches (self-chain + resume
+# sweeper) queue up and collapse instead of running in parallel.
+concurrency:
+  group: agent-build-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+env:
+  MAX_ATTEMPTS_PER_PHASE: "6"
+  BOT_NAME: "github-actions[bot]"
+  BOT_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+
 jobs:
-  build:
-    if: github.event.label.name == 'agent:build'
+  context:
+    name: Resolve pipeline state
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'agent:build'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      issue: ${{ steps.state.outputs.issue }}
+      branch: ${{ steps.state.outputs.branch }}
+      phase: ${{ steps.state.outputs.phase }}
+      title: ${{ steps.state.outputs.title }}
+      body: ${{ steps.state.outputs.body }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Read checkpoint from the pipeline branch
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number || inputs.issue_number }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          BRANCH="agent-build/issue-${ISSUE}"
+          phase=propose
+
+          if git fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" 2>/dev/null; then
+            state="$(git show "origin/${BRANCH}:.agent/pipeline.json" 2>/dev/null || echo '{}')"
+            status="$(jq -r '.status // "in_progress"' <<<"$state")"
+            phase="$(jq -r '.phase // "propose"' <<<"$state")"
+
+            if [ "$EVENT" = "issues" ] && { [ "$status" = "rejected" ] || [ "$status" = "blocked" ]; }; then
+              # Re-adding the label is the human "try again" signal: reset the
+              # attempt counters. A rejected spec goes back to propose so the
+              # findings in REVIEW.md get addressed.
+              [ "$status" = "rejected" ] && phase=propose
+              git checkout -B "$BRANCH" "origin/${BRANCH}"
+              git config user.name  "$BOT_NAME"
+              git config user.email "$BOT_EMAIL"
+              tmp="$(mktemp)"
+              jq --arg p "$phase" '.status = "in_progress" | .phase = $p | .attempts = {}' \
+                .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
+              git commit -am "pipeline: reset after ${status} (#${ISSUE})"
+              git push origin "$BRANCH"
+              echo "Reset pipeline for #${ISSUE} (was ${status}) — resuming at ${phase}."
+            elif [ "$status" != "in_progress" ]; then
+              echo "Pipeline for #${ISSUE} is '${status}' — nothing to do."
+              phase=done
+            else
+              echo "Resuming pipeline for #${ISSUE} at phase '${phase}'."
+            fi
+          else
+            echo "No pipeline branch yet — starting fresh at propose."
+          fi
+
+          {
+            echo "issue=${ISSUE}"
+            echo "branch=${BRANCH}"
+            echo "phase=${phase}"
+            echo "title=$(gh issue view "$ISSUE" --json title --jq .title)"
+            echo "body<<__ISSUE_BODY__"
+            gh issue view "$ISSUE" --json body --jq .body
+            echo "__ISSUE_BODY__"
+          } >> "$GITHUB_OUTPUT"
+
+  propose:
+    name: "Phase 1 — propose (OpenSpec)"
+    needs: context
+    if: needs.context.outputs.phase == 'propose'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create or check out the pipeline branch
+        env:
+          BRANCH: ${{ needs.context.outputs.branch }}
+          ISSUE: ${{ needs.context.outputs.issue }}
+        run: |
+          set -euo pipefail
+          git config user.name  "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+          if git fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" 2>/dev/null; then
+            git checkout -B "$BRANCH" "origin/${BRANCH}"
+          else
+            git checkout -b "$BRANCH"
+            mkdir -p .agent
+            jq -n --argjson issue "$ISSUE" \
+              '{issue: $issue, change: "", phase: "propose", status: "in_progress", attempts: {}, pr: null}' \
+              > .agent/pipeline.json
+            git add .agent/pipeline.json
+            git commit -m "pipeline: start for #${ISSUE}"
+            git push -u origin "$BRANCH"
+          fi
 
       - name: Install OpenSpec CLI
         # The openspec-* skills in .claude/skills call the bare `openspec`
@@ -33,39 +163,386 @@ jobs:
         with:
           # Subscription auth (see claude.yml for the API-key alternative).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          branch_prefix: "agent-build/"
           prompt: |
-            Implement the change requested in issue
-            #${{ github.event.issue.number }}: "${{ github.event.issue.title }}",
-            following this repo's spec-driven (OpenSpec) workflow.
+            You are the PROPOSE phase of this repository's phased agent-build
+            pipeline. A later, separate agent session will review your spec
+            against the repo's guardrails, and further separate sessions will
+            implement it task by task. Those sessions share NO memory with
+            you — everything they need must be written into the spec files.
 
-            Full request:
+            The request — issue #${{ needs.context.outputs.issue }}:
+            "${{ needs.context.outputs.title }}"
             ---
-            ${{ github.event.issue.body }}
+            ${{ needs.context.outputs.body }}
             ---
 
-            This is a non-interactive CI run. The issue above IS the
-            specification — do NOT ask clarifying questions (no AskUserQuestion).
-            Derive a kebab-case change name from the issue title and proceed.
+            This is a non-interactive CI run: do not ask questions; the issue
+            IS the spec. Work on the CURRENT branch
+            `${{ needs.context.outputs.branch }}` (already checked out). Do
+            NOT create or switch to any other branch.
 
-            Process:
-              1. **Propose (spec first).** Use the OpenSpec workflow (the
-                 `openspec-propose` skill / `openspec` CLI is installed) to create
-                 a change under `openspec/changes/<name>/`: a short `proposal.md`
-                 (what & why) and a `tasks.md` (implementation steps). Add a
-                 `design.md` only if the change is non-trivial. Keep these concise.
-              2. **Read** CLAUDE.md and the relevant code; match existing style.
-              3. **Implement** the change following `tasks.md`, checking off tasks
-                 as you complete them. Add/update tests for new behavior, and add
-                 i18n keys to BOTH locale files if you touch UI text.
-              4. **Verify**: `npm run lint`, `npm run test:run`, `npm run build`
-                 must all pass.
-              5. **Open a PR** that closes #${{ github.event.issue.number }},
-                 includes the `openspec/changes/<name>/` artifacts, and summarizes
-                 the proposal in the PR body.
+            Do exactly this:
+            1. Read CLAUDE.md, openspec/config.yaml, and the code relevant to
+               the request.
+            2. Using the OpenSpec workflow (the `openspec` CLI is installed),
+               create ONE change under `openspec/changes/<kebab-case-name>/`:
+                 - `proposal.md` — what & why, concise;
+                 - `tasks.md` — an ordered markdown checklist (`- [ ] ...`) of
+                   SMALL, self-contained implementation tasks. Each task must
+                   be completable by a fresh agent session in a few file
+                   edits, must name the files it touches, and must say how to
+                   verify it (which test to add or run). Include tasks for
+                   unit tests, and for adding i18n keys to BOTH
+                   src/locales/en and src/locales/ja if any UI text changes.
+                   The LAST task must be: run `npm run lint`,
+                   `npm run test:run` and `npm run build` and fix any fallout.
+                 - `design.md` — only if the change is non-trivial.
+            3. If `openspec/changes/<name>/REVIEW.md` exists from a previously
+               rejected attempt, revise the spec to address EVERY finding in
+               it.
+            4. Do NOT implement anything: no changes to src/, e2e/,
+               package.json, or any file outside `openspec/changes/`. Never
+               touch `.github/` or `.agent/`.
+            5. Commit with message "spec: propose <name> (#${{ needs.context.outputs.issue }})"
+               and push to origin ${{ needs.context.outputs.branch }}.
 
-            Do NOT modify anything under `.github/` (workflow changes are handled
-            by humans). Follow .github/AGENT_GUARDRAILS.md. If the request is too
-            large for one focused PR, implement the clearest useful slice, record
-            the rest in `tasks.md`, and note in the PR what you deferred and why.
-          claude_args: "--max-turns 40 --allowedTools Bash,Edit,Read,Write,Glob,Grep"
+            Follow .github/AGENT_GUARDRAILS.md.
+          claude_args: "--max-turns 15 --allowedTools Bash,Edit,Read,Write,Glob,Grep"
+
+      - name: "Checkpoint: advance to constitution phase"
+        env:
+          BRANCH: ${{ needs.context.outputs.branch }}
+          ISSUE: ${{ needs.context.outputs.issue }}
+        run: |
+          set -euo pipefail
+          git fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+          git checkout -f -B "$BRANCH" "origin/${BRANCH}"
+          git clean -fd
+
+          change="$(git diff --name-only "origin/master...HEAD" -- 'openspec/changes/' \
+            | awk -F/ '{print $3}' | grep -v '^archive$' | sort -u | head -n1 || true)"
+          if [ -z "$change" ]; then
+            echo "::error::Propose phase pushed no openspec/changes/<name>/ — counting as a failed attempt."
+            exit 1
+          fi
+          for f in proposal.md tasks.md; do
+            if [ ! -f "openspec/changes/${change}/${f}" ]; then
+              echo "::error::Spec is missing openspec/changes/${change}/${f}."
+              exit 1
+            fi
+          done
+
+          git config user.name  "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+          tmp="$(mktemp)"
+          jq --arg c "$change" '.change = $c | .phase = "constitution"' \
+            .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
+          git commit -am "pipeline: spec '${change}' proposed — advance to constitution (#${ISSUE})"
+          git push origin "$BRANCH"
+
+      - name: Record failed attempt
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.context.outputs.branch }}
+          ISSUE: ${{ needs.context.outputs.issue }}
+          PHASE: propose
+        run: .github/scripts/pipeline-record-failure.sh
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: pipeline-issue-${{ needs.context.outputs.issue }}-propose
+          path: |
+            .agent/pipeline.json
+            openspec/changes/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+
+  constitution:
+    name: "Phase 2 — constitution check"
+    needs: [context, propose]
+    if: >
+      !cancelled() && needs.context.outputs.phase != 'done' &&
+      (needs.propose.result == 'success' ||
+       (needs.propose.result == 'skipped' && needs.context.outputs.phase == 'constitution'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out the pipeline branch
+        env:
+          BRANCH: ${{ needs.context.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+          git checkout -B "$BRANCH" "origin/${BRANCH}"
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the CONSTITUTION-CHECK phase of this repository's phased
+            agent-build pipeline: an INDEPENDENT reviewer. A different agent
+            session wrote the spec — do not trust it, verify it.
+
+            The change name is the `change` field of `.agent/pipeline.json`;
+            the spec lives at `openspec/changes/<change>/`. The original
+            request is issue #${{ needs.context.outputs.issue }}:
+            "${{ needs.context.outputs.title }}"
+            ---
+            ${{ needs.context.outputs.body }}
+            ---
+
+            Judge the spec ONLY against this repository's constitution:
+              - .github/AGENT_GUARDRAILS.md — scope of changes (the "never
+                touch" list), tests must never be weakened or deleted,
+                security posture (no secrets, no new client-side key
+                exposure), minimal focused diffs, cost discipline;
+              - CLAUDE.md — architecture rules (all data fetching via
+                src/services/api.js with the real+mock dual path, i18n keys
+                in BOTH locale files, tests next to source);
+              - the issue itself — the spec must solve what was asked, with
+                no scope creep;
+              - tasks.md quality — tasks small, ordered, self-contained,
+                each naming its files and its verification, ending with the
+                full lint/test/build task.
+
+            Write your review to `openspec/changes/<change>/REVIEW.md`. The
+            FIRST line must be exactly `VERDICT: approved` or
+            `VERDICT: rejected` — nothing else on that line. Then a short
+            findings section; if rejected, give concrete, actionable reasons
+            the propose phase can fix.
+
+            Rules: you may create or overwrite ONLY that REVIEW.md file — do
+            not modify the spec, the code, or anything else. This is a
+            non-interactive run: no questions. Commit with message
+            "spec: constitution review (#${{ needs.context.outputs.issue }})"
+            and push to origin ${{ needs.context.outputs.branch }} (the
+            current branch).
+          claude_args: "--max-turns 10 --allowedTools Bash,Read,Write,Glob,Grep"
+
+      - name: "Checkpoint: record verdict"
+        id: verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.context.outputs.branch }}
+          ISSUE: ${{ needs.context.outputs.issue }}
+        run: |
+          set -euo pipefail
+          git fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+          git checkout -f -B "$BRANCH" "origin/${BRANCH}"
+          git clean -fd
+
+          change="$(jq -r '.change // empty' .agent/pipeline.json)"
+          review="openspec/changes/${change}/REVIEW.md"
+          if [ -z "$change" ] || [ ! -f "$review" ]; then
+            echo "::error::No REVIEW.md was produced — counting as a failed attempt."
+            exit 1
+          fi
+          verdict="$(sed -n '1s/^VERDICT:[[:space:]]*//p' "$review" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+
+          git config user.name  "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+          tmp="$(mktemp)"
+          case "$verdict" in
+            approved)
+              jq '.phase = "implement"' .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
+              git commit -am "pipeline: constitution check passed — advance to implement (#${ISSUE})"
+              ;;
+            rejected)
+              jq '.status = "rejected"' .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
+              git commit -am "pipeline: constitution check rejected the spec (#${ISSUE})"
+              ;;
+            *)
+              echo "::error::REVIEW.md has no parsable 'VERDICT:' first line."
+              exit 1
+              ;;
+          esac
+          git push origin "$BRANCH"
+
+          {
+            echo "## 🏛️ Constitution check: **${verdict}**"
+            echo
+            cat "$review"
+            if [ "$verdict" = "rejected" ]; then
+              echo
+              echo "---"
+              echo "_The pipeline stopped. Address the findings above (edit the issue if needed) and re-add the \`agent:build\` label to re-propose._"
+            fi
+          } > /tmp/verdict-comment.md
+          gh issue comment "$ISSUE" --body-file /tmp/verdict-comment.md
+          echo "verdict=${verdict}" >> "$GITHUB_OUTPUT"
+
+      - name: Record failed attempt
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.context.outputs.branch }}
+          ISSUE: ${{ needs.context.outputs.issue }}
+          PHASE: constitution
+        run: .github/scripts/pipeline-record-failure.sh
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: pipeline-issue-${{ needs.context.outputs.issue }}-constitution
+          path: |
+            .agent/pipeline.json
+            openspec/changes/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+
+  implement:
+    name: "Phase 3 — implement (chunk)"
+    needs: [context, constitution]
+    if: >
+      !cancelled() &&
+      ((needs.constitution.result == 'success' && needs.constitution.outputs.verdict == 'approved') ||
+       (needs.constitution.result == 'skipped' && needs.context.outputs.phase == 'implement'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out the pipeline branch
+        env:
+          BRANCH: ${{ needs.context.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+          git checkout -B "$BRANCH" "origin/${BRANCH}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies (saves the agent's turns)
+        run: npm ci
+
+      - name: Install OpenSpec CLI
+        run: npm install -g @fission-ai/openspec@latest
+
+      - name: Count unchecked tasks before the chunk
+        id: before
+        run: |
+          set -euo pipefail
+          change="$(jq -r '.change // empty' .agent/pipeline.json)"
+          n="$(grep -cE '^[[:space:]]*[-*] \[ \]' "openspec/changes/${change}/tasks.md" || true)"
+          echo "unchecked=${n:-0}" >> "$GITHUB_OUTPUT"
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are ONE IMPLEMENTATION CHUNK of this repository's phased
+            agent-build pipeline. The spec was approved by a previous review
+            phase; other chunks may have run before you and more may run
+            after you. You share no memory with them — the tasks.md checklist
+            is the only coordination, so keep it accurate.
+
+            Branch `${{ needs.context.outputs.branch }}` is checked out and
+            dependencies are installed (`npm ci` already ran). The change
+            name is the `change` field of `.agent/pipeline.json`; the spec is
+            `openspec/changes/<change>/` (proposal.md, tasks.md, design.md if
+            present). The original request is issue
+            #${{ needs.context.outputs.issue }}:
+            "${{ needs.context.outputs.title }}".
+
+            Do exactly this:
+            1. Read proposal.md and tasks.md (and design.md if present).
+            2. Take the FIRST unchecked (`- [ ]`) task and implement it,
+               following CLAUDE.md conventions. Verify it the way the task
+               describes. Mark it `- [x]` in tasks.md, then commit
+               ("task: <short description> (#${{ needs.context.outputs.issue }})")
+               and push to origin ${{ needs.context.outputs.branch }}.
+            3. Repeat for AT MOST 3 tasks in this session, then STOP — even
+               if you have turns left. The pipeline starts a fresh session
+               for the remaining tasks.
+            4. ONLY IF tasks.md is now fully checked (you completed the final
+               task, or it was already fully checked when you started):
+               verify `npm run lint`, `npm run test:run` and `npm run build`
+               all pass, then open a pull request from
+               ${{ needs.context.outputs.branch }} to master (e.g.
+               `gh pr create`) whose body summarizes the proposal, lists what
+               you verified, and contains
+               "Closes #${{ needs.context.outputs.issue }}". If an open PR
+               already exists for this branch, do not create another.
+
+            Rules: follow .github/AGENT_GUARDRAILS.md. Never weaken or delete
+            tests. Never touch `.github/` or `.agent/`. Stay on the current
+            branch. This is a non-interactive run: no questions. If a task is
+            impossible as written, do NOT improvise around the spec: leave it
+            unchecked, append a short "## Blockers" section to tasks.md
+            explaining why, commit, push, and stop.
+          claude_args: "--max-turns 25 --allowedTools Bash,Edit,Read,Write,Glob,Grep"
+
+      - name: "Checkpoint: chain next chunk or finish"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.context.outputs.branch }}
+          ISSUE: ${{ needs.context.outputs.issue }}
+          BEFORE: ${{ steps.before.outputs.unchecked }}
+        run: |
+          set -euo pipefail
+          git fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+          git checkout -f -B "$BRANCH" "origin/${BRANCH}"
+          git clean -fd
+
+          change="$(jq -r '.change // empty' .agent/pipeline.json)"
+          tasks="openspec/changes/${change}/tasks.md"
+          unchecked="$(grep -cE '^[[:space:]]*[-*] \[ \]' "$tasks" || true)"
+          unchecked="${unchecked:-0}"
+          echo "Unchecked tasks: ${BEFORE} before the chunk, ${unchecked} after."
+
+          if [ "$unchecked" -eq 0 ]; then
+            pr="$(gh pr list --head "$BRANCH" --base master --state open --json number --jq '.[0].number // empty')"
+            if [ -z "$pr" ]; then
+              echo "::error::All tasks are done but no PR was opened — the next chunk session will open it."
+              exit 1
+            fi
+            git config user.name  "$BOT_NAME"
+            git config user.email "$BOT_EMAIL"
+            tmp="$(mktemp)"
+            jq --argjson pr "$pr" '.phase = "done" | .status = "pr_opened" | .pr = $pr' \
+              .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
+            git commit -am "pipeline: complete — PR #${pr} opened (#${ISSUE})"
+            git push origin "$BRANCH"
+            echo "Pipeline complete: PR #${pr} is open and awaiting review."
+          elif [ "$unchecked" -lt "$BEFORE" ]; then
+            echo "Chunk made progress — dispatching the next chunk as a fresh session."
+            gh workflow run agent-build.yml -f issue_number="$ISSUE"
+          else
+            echo "::error::The chunk made no progress (no tasks were checked off) — counting as a failed attempt."
+            exit 1
+          fi
+
+      - name: Record failed attempt
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.context.outputs.branch }}
+          ISSUE: ${{ needs.context.outputs.issue }}
+          PHASE: implement
+        run: .github/scripts/pipeline-record-failure.sh
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: pipeline-issue-${{ needs.context.outputs.issue }}-implement
+          path: |
+            .agent/pipeline.json
+            openspec/changes/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
