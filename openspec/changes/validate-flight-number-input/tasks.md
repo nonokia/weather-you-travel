@@ -1,6 +1,6 @@
 # Tasks: Validate Flight Number Input
 
-- [ ] **Task 1 — Create `src/utils/flightValidation.js`**
+- [x] **Task 1 — Create `src/utils/flightValidation.js`**
 
   Create the file with the exported pure function:
 
