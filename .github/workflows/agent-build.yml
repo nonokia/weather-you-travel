@@ -24,32 +24,48 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install OpenSpec CLI
+        # The openspec-* skills in .claude/skills call the bare `openspec`
+        # command, so it must be on PATH for the spec-driven flow.
+        run: npm install -g @fission-ai/openspec@latest
+
       - uses: anthropics/claude-code-action@v1
         with:
           # Subscription auth (see claude.yml for the API-key alternative).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "agent-build/"
           prompt: |
-            Implement the feature/change requested in issue
-            #${{ github.event.issue.number }}: "${{ github.event.issue.title }}".
+            Implement the change requested in issue
+            #${{ github.event.issue.number }}: "${{ github.event.issue.title }}",
+            following this repo's spec-driven (OpenSpec) workflow.
 
             Full request:
             ---
             ${{ github.event.issue.body }}
             ---
 
-            Process:
-              1. Read the codebase (start with CLAUDE.md and the relevant area)
-                 and decide on a minimal, idiomatic design.
-              2. Implement it. Match the surrounding code's style and conventions.
-              3. Add or update tests so the new behavior is covered, and add i18n
-                 keys to BOTH locale files if you touch UI text.
-              4. Make `npm run lint`, `npm run test:run`, and `npm run build`
-                 all pass.
-              5. Open a PR that closes #${{ github.event.issue.number }},
-                 describing the design choices you made and any trade-offs.
+            This is a non-interactive CI run. The issue above IS the
+            specification — do NOT ask clarifying questions (no AskUserQuestion).
+            Derive a kebab-case change name from the issue title and proceed.
 
-            Follow .github/AGENT_GUARDRAILS.md. If the request is ambiguous or too
-            large for one focused PR, implement the clearest useful slice and note
-            in the PR what you deferred and why — do not guess wildly.
-          claude_args: "--max-turns 30 --allowedTools Bash,Edit,Read,Write,Glob,Grep"
+            Process:
+              1. **Propose (spec first).** Use the OpenSpec workflow (the
+                 `openspec-propose` skill / `openspec` CLI is installed) to create
+                 a change under `openspec/changes/<name>/`: a short `proposal.md`
+                 (what & why) and a `tasks.md` (implementation steps). Add a
+                 `design.md` only if the change is non-trivial. Keep these concise.
+              2. **Read** CLAUDE.md and the relevant code; match existing style.
+              3. **Implement** the change following `tasks.md`, checking off tasks
+                 as you complete them. Add/update tests for new behavior, and add
+                 i18n keys to BOTH locale files if you touch UI text.
+              4. **Verify**: `npm run lint`, `npm run test:run`, `npm run build`
+                 must all pass.
+              5. **Open a PR** that closes #${{ github.event.issue.number }},
+                 includes the `openspec/changes/<name>/` artifacts, and summarizes
+                 the proposal in the PR body.
+
+            Do NOT modify anything under `.github/` (workflow changes are handled
+            by humans). Follow .github/AGENT_GUARDRAILS.md. If the request is too
+            large for one focused PR, implement the clearest useful slice, record
+            the rest in `tasks.md`, and note in the PR what you deferred and why.
+          claude_args: "--max-turns 40 --allowedTools Bash,Edit,Read,Write,Glob,Grep"
