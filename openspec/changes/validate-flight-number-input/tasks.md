@@ -89,7 +89,7 @@
 
   Verify: submitting `''` or `'X!!'` never calls `getFlightDetails` and the error div text matches the `invalidFlightNumber` translation key. An empty return flight value (blank string or omitted) must NOT trigger validation.
 
-- [ ] **Task 6 — Run quality checks and fix any fallout**
+- [x] **Task 6 — Run quality checks and fix any fallout**
 
   Run the following in order and fix any failures before marking done:
 
