@@ -18,6 +18,9 @@ function App() {
 
   const handleSearch = async (depFlightNum, retFlightNum) => {
     setError('');
+    setDepartureData(null);
+    setReturnData(null);
+    setWeatherData(null);
     if (!isValidFlightNumber(depFlightNum)) {
       setError(t('invalidFlightNumber'));
       return;
@@ -27,9 +30,6 @@ function App() {
       return;
     }
     setLoading(true);
-    setDepartureData(null);
-    setReturnData(null);
-    setWeatherData(null);
 
     try {
       // Fetch Departure Flight
