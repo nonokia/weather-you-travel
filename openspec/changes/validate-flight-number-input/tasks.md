@@ -38,7 +38,7 @@
 
   Verify: file is valid JSON and contains the `invalidFlightNumber` key.
 
-- [ ] **Task 4 — Add i18n keys to `src/locales/ja/translation.json`**
+- [x] **Task 4 — Add i18n keys to `src/locales/ja/translation.json`**
 
   Add one key to the Japanese locale file:
 
