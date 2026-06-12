@@ -133,11 +133,19 @@ the run page.
 ### Resume after an interruption
 
 `agent-resume.yml` sweeps every two hours (no model, zero agent-credit cost):
-any `agent-build/issue-*` branch whose checkpoint says `in_progress` gets
-re-dispatched, and the pipeline's `context` job re-derives the phase from the
-checkpoint and continues **from where it stopped**. A session-limit outage
-therefore costs only time: the pipeline picks itself back up once the limit
-resets.
+any `agent-build/issue-*` branch whose checkpoint says `in_progress` — and
+which does **not** already have an open PR — gets re-dispatched, and the
+pipeline's `context` job re-derives the phase from the checkpoint and continues
+**from where it stopped**. A session-limit outage therefore costs only time:
+the pipeline picks itself back up once the limit resets.
+
+When the final chunk opens the PR, the pipeline deliberately does **not** push
+a "done" commit to the branch: that extra commit (pushed via `GITHUB_TOKEN`)
+would become the PR head, and `GITHUB_TOKEN` pushes don't auto-run workflows,
+so the required CI checks would sit in `action_required` and block the merge.
+Leaving the PR head as the agent's own (GitHub-App-pushed) task commit lets CI
+run automatically. The **open PR is the completion marker** — which is why the
+resume sweep skips branches that already have one.
 
 Failure accounting: every failed phase run commits `attempts.<phase>+1` to the
 checkpoint. After 6 failures in one phase the pipeline marks itself `blocked`

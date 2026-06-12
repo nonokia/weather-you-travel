@@ -22,6 +22,7 @@ on:
 permissions:
   contents: read
   actions: write
+  pull-requests: read   # the sweep checks whether a branch already has an open PR
 
 jobs:
   sweep:
@@ -48,6 +49,14 @@ jobs:
             fi
             status="$(jq -r '.status // empty' <<<"$state")"
             if [ "$status" = "in_progress" ]; then
+              # A completed pipeline leaves its checkpoint at in_progress on
+              # purpose (it does not push a completion commit, to keep CI off
+              # "action_required"), so the open PR is what marks it done. Skip
+              # any branch that already has an open PR.
+              if [ -n "$(gh pr list --head "$branch" --base master --state open --json number --jq '.[0].number // empty')" ]; then
+                echo "Skipping issue #${issue}: a PR is already open for this branch."
+                continue
+              fi
               phase="$(jq -r '.phase // "?"' <<<"$state")"
               echo "Re-dispatching pipeline for issue #${issue} (phase: ${phase})."
               gh workflow run agent-build.yml -f issue_number="$issue"

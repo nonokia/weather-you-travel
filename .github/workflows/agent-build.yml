@@ -555,18 +555,15 @@ jobs:
               echo "::error::All tasks are done but no PR was opened — the next chunk session will open it."
               exit 1
             fi
-            git config user.name  "$BOT_NAME"
-            git config user.email "$BOT_EMAIL"
-            tmp="$(mktemp)"
-            jq --argjson pr "$pr" '.phase = "done" | .status = "pr_opened" | .pr = $pr' \
-              .agent/pipeline.json > "$tmp" && mv "$tmp" .agent/pipeline.json
-            git add .agent/pipeline.json
-            git commit -m "pipeline: complete — PR #${pr} opened (#${ISSUE})"
-            # Push with an explicit token URL: claude-code-action invalidates the
-          # checkout-persisted git credentials, so a plain `git push origin`
-          # after it fails auth. (Public-repo fetch still works anonymously.)
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
-            echo "Pipeline complete: PR #${pr} is open and awaiting review."
+            # Intentionally do NOT push a completion checkpoint commit to the PR
+            # branch. That extra commit would become the PR head, and because it
+            # is pushed via GITHUB_TOKEN its CI sits in "action_required" (token
+            # pushes don't auto-run workflows) — blocking merge until a human
+            # clicks "approve and run". Leaving the head as the agent's
+            # app-pushed task commit lets the required checks run automatically.
+            # The open PR itself is the completion marker; agent-resume.yml skips
+            # any pipeline branch that already has an open PR.
+            echo "Pipeline complete: PR #${pr} is open and awaiting review." | tee -a "$GITHUB_STEP_SUMMARY"
           elif [ "$unchecked" -lt "$BEFORE" ]; then
             echo "Chunk made progress — dispatching the next chunk as a fresh session."
             gh workflow run agent-build.yml -f issue_number="$ISSUE"
