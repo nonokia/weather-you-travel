@@ -50,7 +50,7 @@
 
   Verify: file is valid JSON and contains the `invalidFlightNumber` key.
 
-- [ ] **Task 5 — Wire validation into `App.handleSearch` in `src/App.jsx`**
+- [x] **Task 5 — Wire validation into `App.handleSearch` in `src/App.jsx`**
 
   The current `handleSearch` body begins (lines 19–20):
   ```js

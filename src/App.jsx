@@ -4,6 +4,7 @@ import FlightInfo from './components/FlightInfo';
 import WeatherForecast from './components/WeatherForecast';
 import Skeleton from './components/Skeleton';
 import { getFlightDetails, getWeather } from './services/api';
+import { isValidFlightNumber } from './utils/flightValidation';
 
 import { useTranslation } from 'react-i18next';
 
@@ -16,8 +17,16 @@ function App() {
   const [error, setError] = useState('');
 
   const handleSearch = async (depFlightNum, retFlightNum) => {
-    setLoading(true);
     setError('');
+    if (!isValidFlightNumber(depFlightNum)) {
+      setError(t('invalidFlightNumber'));
+      return;
+    }
+    if (retFlightNum && !isValidFlightNumber(retFlightNum)) {
+      setError(t('invalidFlightNumber'));
+      return;
+    }
+    setLoading(true);
     setDepartureData(null);
     setReturnData(null);
     setWeatherData(null);
