@@ -1,0 +1,10 @@
+{
+  "issue": 15,
+  "change": "validate-flight-number-input",
+  "phase": "done",
+  "status": "pr_opened",
+  "attempts": {
+    "implement": 2
+  },
+  "pr": 20
+}
