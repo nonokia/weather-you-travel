@@ -64,7 +64,7 @@
   - Do not modify any existing rule or variable.
   - Verify: visually check in the running dev server (`npm run dev`) that the active button is highlighted and toggling works.
 
-- [ ] **Task 7 — Final quality gate**
+- [x] **Task 7 — Final quality gate**
   - Run `npm run lint` and fix any linting errors introduced by this change.
   - Run `npm run test:run` and fix any failing tests.
   - Run `npm run build` and fix any build errors.
