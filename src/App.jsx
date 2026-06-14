@@ -3,8 +3,10 @@ import FlightInput from './components/FlightInput';
 import FlightInfo from './components/FlightInfo';
 import WeatherForecast from './components/WeatherForecast';
 import Skeleton from './components/Skeleton';
+import RecentSearches from './components/RecentSearches';
 import { getFlightDetails, getWeather } from './services/api';
 import { isValidFlightNumber } from './utils/flightValidation';
+import { addRecentSearch, getRecentSearches } from './utils/searchHistory';
 
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +17,7 @@ function App() {
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [recentSearches, setRecentSearches] = useState(() => getRecentSearches());
 
   const handleSearch = async (depFlightNum, retFlightNum) => {
     setError('');
@@ -35,6 +38,7 @@ function App() {
       // Fetch Departure Flight
       const depFlight = await getFlightDetails(depFlightNum);
       setDepartureData(depFlight);
+      setRecentSearches(addRecentSearch(depFlightNum));
 
       // If Return Flight is provided
       if (retFlightNum) {
@@ -55,6 +59,8 @@ function App() {
     }
   };
 
+  const handleRecentSelect = (flightNumber) => { handleSearch(flightNumber, ''); };
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -64,6 +70,7 @@ function App() {
 
       <main className="main-content">
         <FlightInput onSearch={handleSearch} isLoading={loading} />
+        <RecentSearches searches={recentSearches} onSelect={handleRecentSelect} />
 
         {error && <div className="error-message">{error}</div>}
 

@@ -12,5 +12,6 @@
     "return": "Return",
     "airline": "Airline",
     "weatherForecast": "Weather Forecast for {{city}}",
-    "invalidFlightNumber": "Please enter a valid flight number (e.g. JL123)."
+    "invalidFlightNumber": "Please enter a valid flight number (e.g. JL123).",
+    "recentSearches": "Recent searches"
 }
