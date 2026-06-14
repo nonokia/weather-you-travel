@@ -58,7 +58,7 @@
   - Preserve the existing early-return (`if (!weather || weather.length === 0) return null`) unchanged.
   - Verify: `npx vitest run src/components/WeatherForecast.test.jsx` passes if a test file exists; otherwise confirm the component renders correctly in the running dev server.
 
-- [ ] **Task 6 — Add CSS for the toggle control**
+- [x] **Task 6 — Add CSS for the toggle control**
   - File: `src/index.css` (append at the end, under a comment `/* Temperature unit toggle */`)
   - Styles for `.temp-unit-toggle` (inline-flex, border, border-radius), `.temp-unit-toggle button` (transparent background, padding, cursor), and `.temp-unit-toggle button.active` (accent background, white text, default cursor). Use existing CSS custom properties (e.g. `var(--color-accent)`) where available; fall back to literal values if they don't exist in the theme.
   - Do not modify any existing rule or variable.
