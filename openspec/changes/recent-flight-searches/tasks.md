@@ -1,6 +1,6 @@
 # Tasks: Recent Flight Searches
 
-- [ ] **Task 1 — Create `src/utils/searchHistory.js`**
+- [x] **Task 1 — Create `src/utils/searchHistory.js`**
 
   Create a new file `src/utils/searchHistory.js` that exports:
   - `getRecentSearches()` — reads `localStorage` key `wyt:recentSearches`, parses JSON, returns the array or `[]` on any error (missing key, invalid JSON, storage disabled). Never throws.
@@ -8,7 +8,7 @@
 
   Verify: the unit test file in Task 2 passes when run with `npx vitest run src/utils/searchHistory.test.js`.
 
-- [ ] **Task 2 — Add unit tests `src/utils/searchHistory.test.js`**
+- [x] **Task 2 — Add unit tests `src/utils/searchHistory.test.js`**
 
   Create `src/utils/searchHistory.test.js` using Vitest globals (`describe`, `it`, `expect`, `beforeEach`). Before each test, clear `localStorage` and reset the module if needed (use `localStorage.clear()`). Cover:
   1. `getRecentSearches()` returns `[]` when localStorage is empty.
@@ -20,7 +20,7 @@
 
   Verify: `npx vitest run src/utils/searchHistory.test.js` — all tests green.
 
-- [ ] **Task 3 — Add i18n keys to both locale files**
+- [x] **Task 3 — Add i18n keys to both locale files**
 
   Edit `src/locales/en/translation.json`: add `"recentSearches": "Recent searches"`.
   Edit `src/locales/ja/translation.json`: add `"recentSearches": "最近の検索"`.
