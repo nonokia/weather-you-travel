@@ -11,8 +11,8 @@ const WeatherForecast = ({ weather, city, unit, onToggleUnit }) => {
         <div className="card weather-card">
             <h3>{t('weatherForecast', { city })}</h3>
             <div className="temp-unit-toggle" aria-label={t('temperatureUnit')}>
-                <button type="button" className={unit !== 'F' ? 'active' : ''} onClick={onToggleUnit}>°C</button>
-                <button type="button" className={unit === 'F' ? 'active' : ''} onClick={onToggleUnit}>°F</button>
+                <button type="button" className={unit !== 'F' ? 'active' : ''} onClick={() => unit !== 'C' && onToggleUnit()}>°C</button>
+                <button type="button" className={unit === 'F' ? 'active' : ''} onClick={() => unit !== 'F' && onToggleUnit()}>°F</button>
             </div>
             <div className="forecast-grid">
                 {weather.map((day, index) => (
