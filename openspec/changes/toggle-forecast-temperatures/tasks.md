@@ -1,6 +1,6 @@
 # Tasks: Toggle Forecast Temperatures
 
-- [ ] **Task 1 — Create temperature utility**
+- [x] **Task 1 — Create temperature utility**
   - File: `src/utils/temperature.js` (new file)
   - Implement two exported pure functions:
     - `toFahrenheit(celsius)` → `Math.round(celsius * 9 / 5 + 32)` (returns an integer)
@@ -8,7 +8,7 @@
   - No React, no `localStorage`, no imports — pure functions only.
   - Verify: file exists and exports both functions; running `npx vitest run src/utils/temperature.test.js` passes (test file created in Task 2).
 
-- [ ] **Task 2 — Unit tests for temperature utility**
+- [x] **Task 2 — Unit tests for temperature utility**
   - File: `src/utils/temperature.test.js` (new file, next to the utility)
   - Tests to include:
     - `toFahrenheit(0)` → `32`
@@ -21,7 +21,7 @@
     - `formatTemperature(18.6, 'C')` → `"19°C"` (Celsius is also rounded)
   - Verify: `npx vitest run src/utils/temperature.test.js` passes with all cases green.
 
-- [ ] **Task 3 — Add i18n keys to both locale files**
+- [x] **Task 3 — Add i18n keys to both locale files**
   - File: `src/locales/en/translation.json`
     - Add key: `"temperatureUnit": "Temperature unit"`
   - File: `src/locales/ja/translation.json`

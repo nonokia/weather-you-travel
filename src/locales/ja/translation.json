@@ -13,5 +13,6 @@
     "airline": "航空会社",
     "weatherForecast": "{{city}} の天気予報",
     "invalidFlightNumber": "有効な便名を入力してください（例: JL123）。",
-    "recentSearches": "最近の検索"
+    "recentSearches": "最近の検索",
+    "temperatureUnit": "気温の単位"
 }
