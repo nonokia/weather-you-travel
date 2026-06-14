@@ -1,7 +1,7 @@
 {
   "issue": 28,
-  "change": "",
-  "phase": "propose",
+  "change": "toggle-forecast-temperatures",
+  "phase": "constitution",
   "status": "in_progress",
   "attempts": {},
   "pr": null
