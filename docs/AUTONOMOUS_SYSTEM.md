@@ -52,6 +52,7 @@ self-healing safe.** A green build is the contract every agent is held to.
     agent-resume.yml          # re-dispatches interrupted pipelines (no AI)
     claude.yml                # interactive @claude
     pr-review.yml             # read-only agent review on each PR
+    review-autofix.yml        # review findings -> fixes pushed to the PR
     self-healing-ci.yml       # CI failure  -> fix PR
     agent-build.yml           # labeled issue -> phased, resumable pipeline -> PR
     self-improvement.yml      # weekly cron -> improvement PR
@@ -77,6 +78,7 @@ budget and opens a PR on a namespaced branch (`auto-fix/`,
 | `issues` (labeled) | agent-build, incident-response | label-gated so arbitrary issues don't spend budget |
 | `issue_comment` / review comment | claude | `@claude` mention |
 | `workflow_run` (completed→failure) | self-healing-ci, security-autofix | reacts to the gate's own result |
+| `pull_request` / `pull_request_review` | pr-review, review-autofix | review an opened PR; fix the findings on an `agent-build/*` PR |
 | `schedule` (cron) | self-improvement, agent-resume | weekly improvement PR; 2-hourly pipeline resume sweep |
 | `repository_dispatch` | incident-response | external error monitor → `incident` event |
 | `workflow_dispatch` (self-chain) | agent-build | each implementation chunk dispatches the next as a fresh session |
