@@ -1,0 +1,101 @@
+name: Review autofix
+
+# Closes the review loop: pr-review.yml (read-only) finds problems and leaves
+# inline comments; this workflow makes the fixes. When a review is submitted on
+# an agent-built PR, an agent reads the UNRESOLVED review threads, implements
+# the smallest correct fix for each actionable finding, verifies the build,
+# pushes to the PR branch (which re-runs CI), and resolves the threads it fixed.
+#
+# The "find" and "fix" roles stay separate — the reviewer is never given write
+# access; this is a distinct, narrowly-scoped writer.
+#
+# Scope & safety:
+#   - Only PRs whose head branch is `agent-build/*` (the pipeline's own feature
+#     PRs). It never auto-pushes to human or dev branches, and the only
+#     untrusted text it acts on is our own reviewer's findings.
+#   - Skips entirely (no model spend) when there are no unresolved review
+#     threads.
+#   - Single round: pushing fixes re-runs CI but NOT pr-review (which only runs
+#     on opened/reopened), so this never re-triggers itself.
+#   - Honours the AUTOMATION_PAUSED kill-switch.
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write   # required by claude-code-action to mint a GitHub token via OIDC
+
+jobs:
+  autofix:
+    if: >
+      vars.AUTOMATION_PAUSED != 'true' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.draft == false &&
+      startsWith(github.event.pull_request.head.ref, 'agent-build/') &&
+      (github.event.review.state == 'commented' || github.event.review.state == 'changes_requested')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Count unresolved review threads
+        id: threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          count="$(gh api graphql -f query='
+            query($owner:String!,$repo:String!,$pr:Int!){
+              repository(owner:$owner,name:$repo){
+                pullRequest(number:$pr){
+                  reviewThreads(first:100){ nodes { isResolved } }
+                }
+              }
+            }' -F owner="${GITHUB_REPOSITORY%/*}" -F repo="${GITHUB_REPOSITORY#*/}" -F pr="$PR" \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length')"
+          echo "unresolved=${count:-0}" >> "$GITHUB_OUTPUT"
+          echo "Unresolved review threads on PR #${PR}: ${count:-0}"
+
+      - if: steps.threads.outputs.unresolved != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The review is submitted by a bot (our pr-review agent); allow it.
+          allowed_bots: "*"
+          prompt: |
+            Address the UNRESOLVED review findings on pull request
+            #${{ github.event.pull_request.number }}
+            ("${{ github.event.pull_request.title }}"). The PR branch
+            `${{ github.event.pull_request.head.ref }}` is already checked out.
+
+            Process:
+            1. Read the unresolved review threads and their suggested fixes —
+               e.g. query reviewThreads where `isResolved == false` via
+               `gh api graphql`, and read the diff with
+               `git diff origin/${{ github.event.pull_request.base.ref }}...HEAD`.
+            2. For each ACTIONABLE finding, implement the SMALLEST correct fix.
+               Do NOT make any change beyond what the findings ask for — no
+               scope creep, no opportunistic refactors, nothing outside the
+               files the review points at.
+            3. If a finding is wrong or not applicable, do NOT change code for
+               it — reply to that thread briefly explaining why.
+            4. Verify `npm run lint`, `npm run test:run`, and `npm run build`
+               all pass. NEVER weaken, skip, or delete a test to go green; add
+               or fix tests where a finding asks for coverage.
+            5. Commit ("review: address findings (#<n>)") and push to origin
+               `${{ github.event.pull_request.head.ref }}`.
+            6. Resolve the review threads you addressed.
+
+            This is a non-interactive run: no questions. Follow
+            .github/AGENT_GUARDRAILS.md. Never touch `.github/` or `.agent/`.
+            If you cannot safely satisfy a finding, leave its thread unresolved
+            with a short reply rather than forcing a bad change.
+          claude_args: "--max-turns 30 --allowedTools Bash,Edit,Read,Write,Glob,Grep"

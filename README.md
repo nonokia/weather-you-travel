@@ -68,6 +68,7 @@ the remediation agent. The system reacts to its own state.
 | [`ci.yml`](.github/workflows/ci.yml) | push / PR | The quality gate: lint, unit tests, build, Playwright E2E. *(no AI — this is the contract everything else is judged against)* |
 | [`claude.yml`](.github/workflows/claude.yml) | `@claude` mention | Interactive assistant on issues & PRs |
 | [`pr-review.yml`](.github/workflows/pr-review.yml) | PR opened/reopened | Read-only agent review: correctness, security, test gaps (inline comments) |
+| [`review-autofix.yml`](.github/workflows/review-autofix.yml) | review submitted on an `agent-build/*` PR | Reads the unresolved review findings, makes the smallest fixes, pushes to the PR branch, and resolves the threads — closing the review→fix loop |
 | [`self-healing-ci.yml`](.github/workflows/self-healing-ci.yml) | CI fails on `master` | Reads the failing logs, finds the root cause, opens a fix PR |
 | [`agent-build.yml`](.github/workflows/agent-build.yml) | issue labeled `agent:build` | Resumable phased pipeline: OpenSpec spec → constitution check → chunked implementation (≤3 tasks per session) → PR. Checkpointed on the branch after every step |
 | [`agent-resume.yml`](.github/workflows/agent-resume.yml) | every 2 h (cron) | Re-dispatches interrupted pipelines from their last checkpoint — e.g. after a subscription session limit resets *(no AI)* |
