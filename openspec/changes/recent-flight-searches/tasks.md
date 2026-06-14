@@ -58,7 +58,7 @@
 
   Verify: `npx vitest run src/App.test.jsx` still passes; dev server shows chips after a successful search.
 
-- [ ] **Task 6 — Run lint, tests, and build; fix any fallout**
+- [x] **Task 6 — Run lint, tests, and build; fix any fallout**
 
   Run the following in order and fix any errors before marking done:
   ```
