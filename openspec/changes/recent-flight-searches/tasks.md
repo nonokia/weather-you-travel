@@ -44,7 +44,7 @@
 
   Verify: component renders without errors in the dev server; inspect in browser (Task 6).
 
-- [ ] **Task 5 — Wire `RecentSearches` into `src/App.jsx`**
+- [x] **Task 5 — Wire `RecentSearches` into `src/App.jsx`**
 
   In `src/App.jsx`:
   1. Import `RecentSearches` from `./components/RecentSearches`.
