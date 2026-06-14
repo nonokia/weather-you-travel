@@ -13,7 +13,7 @@ const RecentSearches = ({ searches, onSelect }) => {
         <div className="recent-searches">
             <span className="recent-searches-label">{t('recentSearches')}</span>
             {searches.map((s) => (
-                <button key={s} className="recent-chip" onClick={() => onSelect(s)}>
+                <button type="button" key={s} className="recent-chip" onClick={() => onSelect(s)}>
                     {s}
                 </button>
             ))}

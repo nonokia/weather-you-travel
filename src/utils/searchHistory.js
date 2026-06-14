@@ -5,7 +5,10 @@ export function getRecentSearches() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw === null) return [];
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Guard against valid-but-non-array JSON (e.g. `{}` or `42`) so callers
+    // like addRecentSearch can always rely on array methods.
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }

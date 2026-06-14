@@ -14,6 +14,11 @@ describe('getRecentSearches', () => {
     localStorage.setItem('wyt:recentSearches', 'not-valid-json{{{');
     expect(getRecentSearches()).toEqual([]);
   });
+
+  it('returns [] when localStorage value is valid JSON but not an array', () => {
+    localStorage.setItem('wyt:recentSearches', '{"foo":"bar"}');
+    expect(getRecentSearches()).toEqual([]);
+  });
 });
 
 describe('addRecentSearch', () => {
