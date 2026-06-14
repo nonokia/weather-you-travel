@@ -58,7 +58,13 @@ env:
 jobs:
   context:
     name: Resolve pipeline state
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'agent:build'
+    # AUTOMATION_PAUSED is the kill-switch: set the repo variable to 'true'
+    # (Settings → Secrets and variables → Actions → Variables) to instantly
+    # halt ALL agent-build activity — new labels, self-chained chunks, and
+    # resume-sweeper dispatches all enter through this job. Unset it to resume.
+    if: >
+      (github.event_name == 'workflow_dispatch' || github.event.label.name == 'agent:build') &&
+      vars.AUTOMATION_PAUSED != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:

@@ -26,6 +26,10 @@ permissions:
 
 jobs:
   sweep:
+    # Kill-switch: set the repo variable AUTOMATION_PAUSED=true to stop the
+    # resume sweeper (and agent-build) from dispatching anything — e.g. when the
+    # agent-credit pool is exhausted and retries would only waste CI runs.
+    if: vars.AUTOMATION_PAUSED != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -159,6 +159,26 @@ A per-issue `concurrency` group keeps duplicate dispatches (self-chain +
 sweeper) from ever running in parallel; the checkpoint makes re-runs
 idempotent, so a duplicate is just a cheap no-op.
 
+### Cost & safety controls
+
+The pipeline is bounded so a stuck run can't burn CI indefinitely:
+
+- **It self-terminates.** After `MAX_ATTEMPTS_PER_PHASE` (6) failures in one
+  phase the pipeline goes `blocked` and the sweeper stops re-dispatching it
+  (it only resumes `in_progress` pipelines). So a persistent failure costs at
+  most ~6 short runs per pipeline, not an infinite loop.
+- **Kill-switch.** Set the repository variable **`AUTOMATION_PAUSED`** to
+  `true` (Settings → Secrets and variables → Actions → Variables) to instantly
+  halt all agent-build activity — new `agent:build` labels, self-chained
+  chunks, and the resume sweeper all stop. Use it the moment you know the
+  agent-credit pool is exhausted, so retries don't spend CI runs that are
+  guaranteed to fail; unset it when your quota is back. (The deterministic CI
+  and security workflows keep running — only the agent-driven dispatches
+  pause.)
+- **Public-repo note.** GitHub Actions minutes are free and unlimited on public
+  repositories, so the retry budget above is belt-and-suspenders today; it
+  matters most if the repo is made private.
+
 ### Why a separate constitution check?
 
 The spec author and the spec reviewer are **different sessions with different
