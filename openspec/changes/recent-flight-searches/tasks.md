@@ -27,7 +27,7 @@
 
   Verify: `npx vitest run` still passes; no keys missing in either file.
 
-- [ ] **Task 4 — Create `src/components/RecentSearches.jsx` and `src/components/RecentSearches.css`**
+- [x] **Task 4 — Create `src/components/RecentSearches.jsx` and `src/components/RecentSearches.css`**
 
   Create `src/components/RecentSearches.jsx`:
   - Accepts props `searches` (string array) and `onSelect` (function).
