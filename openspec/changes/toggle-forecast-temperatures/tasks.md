@@ -49,7 +49,7 @@
   - Do not change any other state, handler, or JSX outside these additions.
   - Verify: `npx vitest run src/App.test.jsx` still passes.
 
-- [ ] **Task 5 — Update `WeatherForecast.jsx` to render toggle and use `formatTemperature`**
+- [x] **Task 5 — Update `WeatherForecast.jsx` to render toggle and use `formatTemperature`**
   - File: `src/components/WeatherForecast.jsx`
   - Import `formatTemperature` from `'../utils/temperature'`.
   - Accept `unit` and `onToggleUnit` as props (destructure in the component signature alongside `weather` and `city`).
