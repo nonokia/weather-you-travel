@@ -29,7 +29,7 @@
   - Do not change any existing key or remove any existing key.
   - Verify: both files remain valid JSON (parse without error); the new key appears in both.
 
-- [ ] **Task 4 — Add `tempUnit` state and handler to `App.jsx`**
+- [x] **Task 4 — Add `tempUnit` state and handler to `App.jsx`**
   - File: `src/App.jsx`
   - Add `tempUnit` state with lazy initializer (reads `localStorage.getItem('wyt:tempUnit')`, defaults to `'C'`, wrapped in try/catch):
     ```js
