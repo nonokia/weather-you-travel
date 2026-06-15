@@ -483,7 +483,13 @@ jobs:
         run: |
           set -euo pipefail
           change="$(jq -r '.change // empty' .agent/pipeline.json)"
-          n="$(grep -cE '^[[:space:]]*[-*] \[ \]' "openspec/changes/${change}/tasks.md" || true)"
+          # If the change is already archived (final chunk moved it), the work
+          # is complete — report 0 unchecked.
+          if [ -d "openspec/changes/${change}" ]; then
+            n="$(grep -cE '^[[:space:]]*[-*] \[ \]' "openspec/changes/${change}/tasks.md" || true)"
+          else
+            n=0
+          fi
           echo "unchecked=${n:-0}" >> "$GITHUB_OUTPUT"
 
       - uses: anthropics/claude-code-action@v1
@@ -521,13 +527,21 @@ jobs:
                for the remaining tasks.
             4. ONLY IF tasks.md is now fully checked (you completed the final
                task, or it was already fully checked when you started):
-               verify `npm run lint`, `npm run test:run` and `npm run build`
-               all pass, then open a pull request from
-               ${{ needs.context.outputs.branch }} to master (e.g.
-               `gh pr create`) whose body summarizes the proposal, lists what
-               you verified, and contains
-               "Closes #${{ needs.context.outputs.issue }}". If an open PR
-               already exists for this branch, do not create another.
+               a. verify `npm run lint`, `npm run test:run` and `npm run build`
+                  all pass;
+               b. ARCHIVE the OpenSpec change so the merged PR records it as
+                  complete: `git mv openspec/changes/<change>` to
+                  `openspec/changes/archive/<YYYY-MM-DD>-<change>` (today's UTC
+                  date; create `openspec/changes/archive/` if missing). There
+                  are no delta specs to sync. Commit this
+                  ("spec: archive <change> (#${{ needs.context.outputs.issue }})")
+                  and push to origin ${{ needs.context.outputs.branch }};
+               c. open a pull request from
+                  ${{ needs.context.outputs.branch }} to master (e.g.
+                  `gh pr create`) whose body summarizes the proposal, lists what
+                  you verified, and contains
+                  "Closes #${{ needs.context.outputs.issue }}". If an open PR
+                  already exists for this branch, do not create another.
 
             Rules: follow .github/AGENT_GUARDRAILS.md. Never weaken or delete
             tests. Never touch `.github/` or `.agent/`. Stay on the current
@@ -550,9 +564,14 @@ jobs:
           git clean -fd
 
           change="$(jq -r '.change // empty' .agent/pipeline.json)"
-          tasks="openspec/changes/${change}/tasks.md"
-          unchecked="$(grep -cE '^[[:space:]]*[-*] \[ \]' "$tasks" || true)"
-          unchecked="${unchecked:-0}"
+          # The final chunk archives the change (moves it under
+          # changes/archive/), so a missing active dir means "all done".
+          if [ -d "openspec/changes/${change}" ]; then
+            unchecked="$(grep -cE '^[[:space:]]*[-*] \[ \]' "openspec/changes/${change}/tasks.md" || true)"
+            unchecked="${unchecked:-0}"
+          else
+            unchecked=0
+          fi
           echo "Unchecked tasks: ${BEFORE} before the chunk, ${unchecked} after."
 
           if [ "$unchecked" -eq 0 ]; then
