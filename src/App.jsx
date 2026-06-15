@@ -18,6 +18,15 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [recentSearches, setRecentSearches] = useState(() => getRecentSearches());
+  const [tempUnit, setTempUnit] = useState(() => {
+    try { return localStorage.getItem('wyt:tempUnit') || 'C'; } catch { return 'C'; }
+  });
+
+  const handleToggleTempUnit = () => {
+    const next = tempUnit === 'C' ? 'F' : 'C';
+    setTempUnit(next);
+    try { localStorage.setItem('wyt:tempUnit', next); } catch { /* ignore */ }
+  };
 
   const handleSearch = async (depFlightNum, retFlightNum) => {
     setError('');
@@ -127,7 +136,7 @@ function App() {
 
               {weatherData && (
                 <div className="weather-section">
-                  <WeatherForecast weather={weatherData} city={departureData.arrival.city} />
+                  <WeatherForecast weather={weatherData} city={departureData.arrival.city} unit={tempUnit} onToggleUnit={handleToggleTempUnit} />
                 </div>
               )}
             </>

@@ -1,10 +1,8 @@
 {
-  "issue": 24,
-  "change": "recent-flight-searches",
+  "issue": 28,
+  "change": "toggle-forecast-temperatures",
   "phase": "implement",
   "status": "in_progress",
-  "attempts": {
-    "implement": 1
-  },
+  "attempts": {},
   "pr": null
 }
