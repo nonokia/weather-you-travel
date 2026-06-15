@@ -55,7 +55,14 @@ describe('App', () => {
         const mockWeatherData = [
             { date: '2025-11-29', temp: 22, condition: 'Sunny', icon: '☀️' },
         ]
-        api.getFlightDetails.mockResolvedValue(mockFlightData)
+        api.getFlightDetails
+            .mockResolvedValueOnce(mockFlightData)
+            .mockResolvedValueOnce({
+                ...mockFlightData,
+                flightNumber: 'NH456',
+                departure: { airport: 'LAX', city: 'Los Angeles', time: '09:00' },
+                arrival: { airport: 'NRT', city: 'Tokyo', time: '14:00' },
+            })
         api.getWeather.mockResolvedValue(mockWeatherData)
 
         render(<App />)
@@ -67,6 +74,7 @@ describe('App', () => {
         expect(api.getFlightDetails).toHaveBeenCalledWith('JL123')
         expect(api.getFlightDetails).toHaveBeenCalledWith('NH456')
         expect(api.getWeather).toHaveBeenCalledWith('Los Angeles')
+        expect(await screen.findByText(/Sunny/i)).toBeInTheDocument()
     })
 
     it('does not fetch weather when no return flight is given', async () => {
