@@ -110,7 +110,9 @@ issue + agent:build
    │           next chunk as a fresh session (workflow_dispatch self-chain)
    ▼
 [PR]           when tasks.md is fully checked: verify lint/test/build,
-               open the PR (closes the issue) → human review as usual
+               archive the OpenSpec change (move it under
+               openspec/changes/archive/<date>-<name>/), open the PR
+               (closes the issue) → human review as usual
 ```
 
 ### The branch is the checkpoint
