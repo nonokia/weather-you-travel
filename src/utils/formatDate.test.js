@@ -38,4 +38,10 @@ describe('formatForecastDate', () => {
   it('undefined returns undefined', () => {
     expect(formatForecastDate(undefined, 'en')).toBeUndefined();
   });
+
+  it('null locale uses system locale and formats the date', () => {
+    const result = formatForecastDate('2025-11-29', null);
+    expect(result).toMatch(/29/);
+    expect(result).not.toBe('2025-11-29');
+  });
 });

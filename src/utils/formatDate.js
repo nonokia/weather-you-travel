@@ -4,7 +4,8 @@ export function formatForecastDate(isoDate, locale) {
     // Append T00:00:00 to force local-calendar parsing and avoid UTC midnight drift.
     const date = new Date(`${isoDate}T00:00:00`);
     if (isNaN(date.getTime())) return isoDate;
-    return new Intl.DateTimeFormat(locale, {
+    const safeLocale = locale ?? undefined;
+    return new Intl.DateTimeFormat(safeLocale, {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
