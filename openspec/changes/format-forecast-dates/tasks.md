@@ -34,7 +34,7 @@
     - Null/undefined: `formatForecastDate(null, 'en')` returns `null` unchanged; `formatForecastDate(undefined, 'en')` returns `undefined` unchanged.
   - Verify: `npx vitest run src/utils/formatDate.test.js` passes with all cases green.
 
-- [ ] **Task 3 — Update `WeatherForecast.jsx` to use `formatForecastDate`**
+- [x] **Task 3 — Update `WeatherForecast.jsx` to use `formatForecastDate`**
   - File: `src/components/WeatherForecast.jsx`
   - Import `formatForecastDate` from `'../utils/formatDate'`.
   - Destructure `i18n` from the existing `useTranslation()` call:
