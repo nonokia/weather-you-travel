@@ -2,9 +2,10 @@ import React from 'react';
 
 import { useTranslation } from 'react-i18next';
 import { formatTemperature } from '../utils/temperature';
+import { formatForecastDate } from '../utils/formatDate';
 
 const WeatherForecast = ({ weather, city, unit, onToggleUnit }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     if (!weather || weather.length === 0) return null;
 
     return (
@@ -17,7 +18,7 @@ const WeatherForecast = ({ weather, city, unit, onToggleUnit }) => {
             <div className="forecast-grid">
                 {weather.map((day, index) => (
                     <div key={index} className="forecast-day">
-                        <div className="date">{day.date}</div>
+                        <div className="date">{formatForecastDate(day.date, i18n.language)}</div>
                         <div className="icon">{day.icon}</div>
                         <div className="temp">{formatTemperature(day.temp, unit)}</div>
                         <div className="condition">{day.condition}</div>

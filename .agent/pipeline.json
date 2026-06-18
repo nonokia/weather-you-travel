@@ -1,6 +1,6 @@
 {
-  "issue": 28,
-  "change": "toggle-forecast-temperatures",
+  "issue": 32,
+  "change": "format-forecast-dates",
   "phase": "implement",
   "status": "in_progress",
   "attempts": {},
