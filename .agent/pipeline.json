@@ -1,7 +1,7 @@
 {
   "issue": 32,
   "change": "format-forecast-dates",
-  "phase": "constitution",
+  "phase": "implement",
   "status": "in_progress",
   "attempts": {},
   "pr": null
