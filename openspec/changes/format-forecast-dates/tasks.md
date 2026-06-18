@@ -45,7 +45,7 @@
   - Do not change anything else: preserve the early return, the temperature toggle from #28 (`unit`, `onToggleUnit`, `formatTemperature`), all class names, and all other JSX.
   - Verify: `npx vitest run src/App.test.jsx` still passes; visually confirm the forecast shows a friendly date in the running dev server.
 
-- [ ] **Task 4 — Final quality gate**
+- [x] **Task 4 — Final quality gate**
   - Run `npm run lint` and fix any linting errors introduced by this change.
   - Run `npm run test:run` and fix any failing tests.
   - Run `npm run build` and fix any build errors.
