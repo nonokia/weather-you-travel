@@ -1,6 +1,6 @@
 # Tasks: Format Forecast Dates
 
-- [ ] **Task 1 — Create `formatDate` utility**
+- [x] **Task 1 — Create `formatDate` utility**
   - File: `src/utils/formatDate.js` (new file)
   - Export one pure function:
     ```js
@@ -23,7 +23,7 @@
   - No React, no i18next imports — pure function only; `locale` is passed in by the caller.
   - Verify: file exists and exports `formatForecastDate`; the unit tests added in Task 2 pass.
 
-- [ ] **Task 2 — Unit tests for `formatForecastDate`**
+- [x] **Task 2 — Unit tests for `formatForecastDate`**
   - File: `src/utils/formatDate.test.js` (new file, next to the utility)
   - Tests to include (assert on stable substrings; avoid exact punctuation which varies by runtime):
     - Valid date, English locale: `formatForecastDate('2025-11-29', 'en')` — the result contains `'29'` and one of `['Nov', 'November']`.
