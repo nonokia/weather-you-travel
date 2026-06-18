@@ -1,7 +1,7 @@
 {
   "issue": 33,
-  "change": "",
-  "phase": "propose",
+  "change": "add-reset-button",
+  "phase": "constitution",
   "status": "in_progress",
   "attempts": {},
   "pr": null
