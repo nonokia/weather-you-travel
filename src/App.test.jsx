@@ -101,6 +101,7 @@ describe('App', () => {
         fireEvent.change(screen.getByLabelText(/departure flight/i), { target: { value: 'JL123' } })
         fireEvent.click(screen.getByRole('button'))
 
-        expect(await screen.findByText(/flight not found/i)).toBeInTheDocument()
+        const alert = await screen.findByRole('alert')
+        expect(alert).toHaveTextContent(/flight not found/i)
     })
 })
