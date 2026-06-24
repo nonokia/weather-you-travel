@@ -32,7 +32,7 @@ flowchart TD
         A2["self-healing-ci: diagnose & fix CI"]
         A3["security-autofix: remediate advisory"]
         A4["incident-response: root-cause + fix"]
-        A5["self-improvement: weekly audit (cron)"]
+        A5["self-improvement: weekly system-level audit → files agent:build issue (cron)"]
     end
 
     subgraph Gate["Deterministic gate"]
@@ -72,7 +72,7 @@ the remediation agent. The system reacts to its own state.
 | [`self-healing-ci.yml`](.github/workflows/self-healing-ci.yml) | CI fails on `master` | Reads the failing logs, finds the root cause, opens a fix PR |
 | [`agent-build.yml`](.github/workflows/agent-build.yml) | issue labeled `agent:build` | Resumable phased pipeline: OpenSpec spec → constitution check → chunked implementation (≤3 tasks per session) → PR. Checkpointed on the branch after every step |
 | [`agent-resume.yml`](.github/workflows/agent-resume.yml) | every 2 h (cron) | Re-dispatches interrupted pipelines from their last checkpoint — e.g. after a subscription session limit resets *(no AI)* |
-| [`self-improvement.yml`](.github/workflows/self-improvement.yml) | weekly cron | Audits the codebase, opens **one** focused improvement PR |
+| [`self-improvement.yml`](.github/workflows/self-improvement.yml) | weekly cron | **System-level audit**: reviews the whole repo (architecture drift, cross-cutting bugs, test integrity, process gaps), posts a prioritized findings report, and auto-files the top finding as an `agent:build` issue. Read-only on code |
 | [`security-scan.yml`](.github/workflows/security-scan.yml) | push / PR / daily | CodeQL, `npm audit`, gitleaks secret scan, dependency review |
 | [`security-autofix.yml`](.github/workflows/security-autofix.yml) | security scan fails | Triages the finding, opens a remediation PR (flags secrets for rotation) |
 | [`incident-response.yml`](.github/workflows/incident-response.yml) | `repository_dispatch` or `incident` label | Root-cause analysis on a runtime error → fix + regression test PR |
