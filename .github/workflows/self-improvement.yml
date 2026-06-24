@@ -1,8 +1,15 @@
-name: Scheduled self-improvement
+name: Product audit (self-improvement)
 
-# Once a week, an agent audits the codebase and opens ONE focused improvement PR
-# — a refactor, a test-coverage gap, a small UX or a11y fix, a doc correction.
-# Deliberately scoped to a single high-value change so reviews stay tractable.
+# The "system-level" reviewer — the third layer above the constitution check
+# (spec-level) and pr-review (diff-level). Per-PR review can't see whole-product
+# drift: features built by isolated agent sessions accumulate inconsistencies
+# that no single diff owns. Once a week (or on demand) an agent audits the
+# ENTIRE repo, posts a prioritized findings report, and auto-files the single
+# highest-priority finding as an `agent:build` issue so the normal pipeline
+# fixes it. "Audit proposes; the build loop disposes."
+#
+# Read-only on code: it never edits or commits — it only reads and files issues.
+# Honours the AUTOMATION_PAUSED kill-switch.
 
 on:
   schedule:
@@ -10,52 +17,90 @@ on:
   workflow_dispatch:
     inputs:
       focus:
-        description: "Optional area to focus the audit on (e.g. 'a11y', 'tests', 'api.js')"
+        description: "Optional area to focus the audit on (e.g. 'tests', 'architecture', 'process')"
         required: false
         default: ""
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
   issues: write
   id-token: write   # required by claude-code-action to mint a GitHub token via OIDC
 
 jobs:
-  improve:
+  audit:
+    if: vars.AUTOMATION_PAUSED != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Today's date (UTC)
+        id: date
+        run: echo "today=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
       - uses: anthropics/claude-code-action@v1
         with:
-          # Subscription auth (see claude.yml for the API-key alternative).
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Triggered by cron, so the run's actor is a bot; allow it
-          # (claude-code-action blocks bot-initiated runs by default).
+          # Triggered by cron, so the run's actor is a bot; allow it.
           allowed_bots: "*"
-          branch_prefix: "self-improvement/"
           prompt: |
-            Audit this codebase and propose ONE focused, high-value improvement,
-            then implement it and open a PR.
-            ${{ github.event.inputs.focus && format('Focus this audit on: {0}.', github.event.inputs.focus) || '' }}
+            You are the SYSTEM-LEVEL reviewer for this repository — the layer
+            above the per-spec constitution check and the per-diff pr-review.
+            Your job is to catch WHOLE-PRODUCT drift that no single PR owns.
+            You review READ-ONLY: never edit, commit, or open a PR. You read the
+            code and file issues. This is a non-interactive run — no questions.
 
-            Look for the single best opportunity among:
-              - missing test coverage on important logic,
-              - a small refactor that removes real duplication or a footgun,
-              - an accessibility or UX gap in the components,
-              - a correctness issue or a stale/incorrect doc,
-              - a safe dependency update.
+            STEP 1 — Understand what this project actually is.
+            Read README.md and CLAUDE.md first. This repository's real PRODUCT
+            is the autonomous AI software-lifecycle system itself; the weather
+            app is a SUBSTRATE used to exercise it. Prioritize accordingly:
+              - HIGH: the process/automation, architecture coherence, test
+                integrity (formalistic or wrong tests, missing integration
+                coverage), and cross-cutting contradictions between features.
+              - LOW: weather-app feature polish, and production-security
+                concerns — there is NO production deployment, so e.g. the
+                client-side API keys are an accepted, documented substrate
+                limitation, not a priority. Do not rank those at the top.
+            ${{ github.event.inputs.focus && format('Extra focus for this run: {0}.', github.event.inputs.focus) || '' }}
 
-            Rules:
-              - Exactly ONE logical change per run. Resist scope creep.
-              - `npm run lint`, `npm run test:run`, and `npm run build` must pass.
-              - The PR must explain why this change is worth making.
-              - If, after auditing, nothing is clearly worth changing this week,
-                open NO pull request and instead leave a brief comment-style
-                summary in the run log saying the codebase is in good shape.
+            STEP 2 — Audit the WHOLE repo (not a diff).
+            Read across all of src/ (and .github/workflows + docs for process
+            gaps). Use `git log --oneline -20` for recent history. Look for:
+              - architecture drift / inconsistency (e.g. the same concern
+                solved two different ways across features),
+              - cross-cutting bugs or feature contradictions that only appear
+                when features are viewed together,
+              - test quality: formalistic/over-mocked/wrong tests, and gaps in
+                integration/behaviour coverage of things likely to regress,
+              - spec/implementation/doc drift,
+              - gaps in the AUTONOMOUS PROCESS itself (this is the product).
 
-            Follow .github/AGENT_GUARDRAILS.md.
-          claude_args: "--max-turns 20 --allowedTools Bash,Edit,Read,Write,Glob,Grep"
+            STEP 3 — Report. Build a PRIORITIZED findings list. For each finding
+            give: a short title, severity, the essence-aligned reason it matters
+            FOR THIS PROJECT, file:line evidence, and a concrete fix sketch.
+            Maintain a single rolling report issue:
+              - `gh label create audit-report --color 6f42c1 --force || true`
+              - Close any previously open `audit-report` issues
+                (`gh issue list --label audit-report --state open` →
+                 `gh issue close`) so only the latest stays open.
+              - Open a new issue titled
+                "🔭 Product audit — ${{ steps.date.outputs.today }}" with the
+                report body, labelled `audit-report` (NOT `agent:build`).
+
+            STEP 4 — Auto-file the top fix (at most one outstanding).
+            `gh label create audit --color 0e8a16 --force || true`
+            If `gh issue list --label audit --state open` already has an open
+            item, do NOT file another — note in the report that a prior
+            audit-driven fix is still pending. Otherwise, take the single
+            highest-priority ACTIONABLE finding and open a separate, tightly
+            scoped issue for it (labels: `agent:build` AND `audit`) written like
+            a human spec the build pipeline can implement: clear What/Why,
+            acceptance criteria, files touched, scope/non-goals, and the test to
+            add. Keep it to ONE focused change. If nothing is materially worth
+            fixing, file no fix issue and say so in the report.
+
+            Follow .github/AGENT_GUARDRAILS.md. Be honest: if the system is in
+            good shape, say so rather than inventing work.
+          claude_args: "--max-turns 25 --allowedTools Bash,Read,Glob,Grep"
