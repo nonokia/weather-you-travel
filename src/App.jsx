@@ -81,7 +81,7 @@ function App() {
         <FlightInput onSearch={handleSearch} isLoading={loading} />
         <RecentSearches searches={recentSearches} onSelect={handleRecentSelect} />
 
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="error-message" role="alert">{error}</div>}
 
         <div className="results-container">
           {loading ? (
