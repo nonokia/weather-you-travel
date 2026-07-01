@@ -3,6 +3,8 @@
   "change": "add-reset-button",
   "phase": "implement",
   "status": "in_progress",
-  "attempts": {},
+  "attempts": {
+    "implement": 1
+  },
   "pr": null
 }
