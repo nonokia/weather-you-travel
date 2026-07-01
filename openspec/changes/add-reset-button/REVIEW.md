@@ -1,41 +1,53 @@
-VERDICT: rejected
+VERDICT: approved
 
 ## Summary
 
-The proposal is architecturally correct and well-scoped. One concrete defect in Task 5 will prevent the test suite from passing when the spec is followed literally, which violates the Definition of Done in AGENT_GUARDRAILS.md.
-
----
+The spec has been revised since the prior rejection and now correctly
+addresses the defect that caused it: Task 5 updates all six occurrences of
+the ambiguous `screen.getByRole('button')` selector in `src/App.test.jsx`,
+not just two. I cross-checked the listed line numbers (23, 29, 43, 71, 90,
+102) against the current file and they match exactly, and the replacement
+selector `screen.getByRole('button', { name: /get info|searching/i })` does
+not collide with the new Reset button's label ("Reset"/"リセット"). The
+proposal is architecturally sound, in scope, and passes on all constitution
+checks.
 
 ## Findings
 
-### FAIL — Task 5 leaves four existing tests broken
+### Passing checks
 
-Task 5 instructs the implementer to update the ambiguous `screen.getByRole('button')` selector in only **two** of the six tests that use it. The remaining four tests also call `screen.getByRole('button')` to click the submit button, and each will throw `TestingLibraryElementError: Found multiple elements with the role "button"` once the Reset button is added.
-
-Affected lines in `src/App.test.jsx` **not** covered by Task 5:
-
-| Test | Line |
-|------|------|
-| `'calls getFlightDetails and shows no validation error for a valid flight number'` | 44 |
-| `'fetches return flight and weather for destination when return flight is provided'` | 71 |
-| `'does not fetch weather when no return flight is given'` | 90 |
-| `'shows error message when flight lookup fails'` | 101 |
-
-A literal implementation of Task 5 yields four failing tests, so `npm run test:run` cannot pass — contradicting AGENT_GUARDRAILS.md §"Definition of done" point 2.
-
-**Actionable fix:** In Task 5, extend the selector-update instruction to cover all six occurrences:
-
-> In every existing test that calls `fireEvent.click(screen.getByRole('button'))` (lines 29, 44, 71, 90, 101), change the selector to `screen.getByRole('button', { name: /get info|searching/i })` so it targets only the submit button and is unambiguous when the Reset button is also present.
-
----
-
-## Passing checks (for reference)
-
-- **Scope**: only `src/` touched; `src/services/api.js`, `.github/`, `e2e/`, `package.json` are explicitly excluded. ✅
-- **Architecture**: `handleReset` lives in `App.jsx` (state owner), passed down via `onReset` prop — consistent with CLAUDE.md state-flow rules. ✅
-- **Initial state fidelity**: the proposed `handleReset` restores `departureData → null`, `returnData → null`, `weatherData → null`, `error → ''`, `loading → false` — these match `App.jsx` initialisers exactly. `recentSearches` and `tempUnit` are correctly left alone. ✅
-- **i18n**: Task 1 adds `"reset"` key to both `src/locales/en/translation.json` and `src/locales/ja/translation.json`. ✅
-- **Button accessibility**: `<button type="button">` with a translated label — meets the issue requirement. ✅
-- **Security**: no credentials, no new key exposure. ✅
-- **Task structure**: tasks are ordered, each names its files and verification; Task 6 covers `lint → test:run → build`. ✅
-- **No scope creep**: no changes to data layer, unrelated UI, or recent-search/temp-unit state. ✅
+- **Scope**: only `src/App.jsx`, `src/components/FlightInput.jsx`,
+  `src/index.css`, `src/App.test.jsx`, and both locale files are touched.
+  `src/services/api.js`, `.github/`, `e2e/`, `package.json` are untouched. ✅
+- **Architecture**: `handleReset` lives in `App.jsx`, the sole owner of
+  app-level state per CLAUDE.md; `FlightInput` clears its own local input
+  state and calls `onReset()` — consistent with the existing prop-down data
+  flow. ✅
+- **State fidelity**: proposed `handleReset` sets `departureData`,
+  `returnData`, `weatherData` back to `null`, `error` to `''`, `loading` to
+  `false` — verified against `App.jsx`'s actual `useState` initializers,
+  which match exactly. `recentSearches` and `tempUnit` are correctly left
+  untouched, matching the issue's explicit non-goal. ✅
+- **i18n**: adds a `"reset"` key to both `src/locales/en/translation.json`
+  and `src/locales/ja/translation.json`; neither file currently has a
+  `reset` key, so no collision. ✅
+- **Accessibility**: real `<button type="button">` with a `t()`-translated
+  label, per the issue's implementer notes. ✅
+- **Test correctness (the prior rejection reason)**: all six existing
+  `getByRole('button')` call sites in `src/App.test.jsx` (verified at lines
+  23, 29, 43, 71, 90, 102 in the current file) are covered by Task 5's
+  instruction to disambiguate via `{ name: /get info|searching/i }`. This
+  regex does not match "Reset", so the new button won't cause false
+  matches. The new reset test uses `{ name: /reset/i }` to target it
+  specifically. A literal implementation of Task 5 leaves no ambiguous
+  selectors and no broken tests. ✅
+- **No test weakening**: no existing test is skipped, deleted, or asserted
+  more loosely; the change only disambiguates a selector that would
+  otherwise become genuinely ambiguous once a second button exists. ✅
+- **Security**: no credentials, no new client-side key exposure. ✅
+- **Task quality**: six tasks, small and ordered (i18n → state → UI → CSS →
+  tests → full validation), each names its files and a concrete verify
+  step; Task 6 runs `npm run lint`, `npm run test:run`, `npm run build` in
+  sequence and instructs fixing root causes rather than forcing green. ✅
+- **No scope creep**: search logic, recent-search history, and temperature
+  unit preference are explicitly left untouched; no unrelated UI restyling. ✅
