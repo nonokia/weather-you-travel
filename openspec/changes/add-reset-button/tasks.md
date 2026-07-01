@@ -48,7 +48,7 @@
 
   Verify: the Reset button appears in the browser UI; clicking it empties both inputs and clears any displayed results.
 
-- [ ] **Task 4 — Add CSS for the secondary/reset button**
+- [x] **Task 4 — Add CSS for the secondary/reset button**
 
   Files: `src/index.css`
 
