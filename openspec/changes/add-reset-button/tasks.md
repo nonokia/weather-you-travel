@@ -30,7 +30,7 @@
 
   Verify: existing tests in `src/App.test.jsx` still pass (`npx vitest run src/App.test.jsx`).
 
-- [ ] **Task 3 — Add Reset button to FlightInput**
+- [x] **Task 3 — Add Reset button to FlightInput**
 
   Files: `src/components/FlightInput.jsx`
 
