@@ -10,7 +10,7 @@
 
   Verify: `npx vitest run src/App.test.jsx` still passes (no regressions from locale change).
 
-- [ ] **Task 2 — Add `handleReset` to App.jsx and pass `onReset` to FlightInput**
+- [x] **Task 2 — Add `handleReset` to App.jsx and pass `onReset` to FlightInput**
 
   Files: `src/App.jsx`
 
