@@ -74,7 +74,7 @@
 
   Verify: both the search button and reset button are visible and visually distinct in the app.
 
-- [ ] **Task 5 — Write a test verifying reset clears inputs and results**
+- [x] **Task 5 — Write a test verifying reset clears inputs and results**
 
   Files: `src/App.test.jsx`
 
