@@ -1,7 +1,7 @@
 {
   "issue": 33,
   "change": "add-reset-button",
-  "phase": "constitution",
+  "phase": "implement",
   "status": "in_progress",
   "attempts": {},
   "pr": null
