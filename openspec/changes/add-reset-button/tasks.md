@@ -78,11 +78,15 @@
 
   Files: `src/App.test.jsx`
 
-  1. **Update the ambiguous button selector** in the existing test `'renders the header and the flight search input'`: change `screen.getByRole('button')` to `screen.getAllByRole('button')` and assert the returned array has at least one element, OR use a more specific query like `screen.getByRole('button', { name: /get info/i })`. This prevents the test from breaking due to the second button being added.
+  1. **Update EVERY existing occurrence of the ambiguous `screen.getByRole('button')` selector** — there are six in this file today, and once the Reset button is added, ALL SIX will throw `TestingLibraryElementError: Found multiple elements with the role "button"` unless disambiguated (a fix that only updates some of them still leaves the suite red). Change every one of them to `screen.getByRole('button', { name: /get info|searching/i })` — this matches the submit button's rendered label in both its idle state ("Get Info") and loading state ("Searching..."); the test environment's i18n falls back to English, so this English-only regex is sufficient and must NOT also match the Reset button's label. The six lines to fix (as of this proposal — re-locate by searching the file for `getByRole('button')` if line numbers have drifted, and confirm the count is six before moving on):
+     - Line 23: `expect(screen.getByRole('button')).toBeInTheDocument()` — in `'renders the header and the flight search input'`
+     - Line 29: `fireEvent.click(screen.getByRole('button'))` — in `'shows validation error and does not call getFlightDetails for an invalid flight number'`
+     - Line 43: `fireEvent.click(screen.getByRole('button'))` — in `'calls getFlightDetails and shows no validation error for a valid flight number'`
+     - Line 71: `fireEvent.click(screen.getByRole('button'))` — in `'fetches return flight and weather for destination when return flight is provided'`
+     - Line 90: `fireEvent.click(screen.getByRole('button'))` — in `'does not fetch weather when no return flight is given'`
+     - Line 102: `fireEvent.click(screen.getByRole('button'))` — in `'shows error message when flight lookup fails'`
 
-  2. **Also update the validation-error test** (`'shows validation error...'`) which uses `screen.getByRole('button')` to click the submit button — change it to `screen.getByRole('button', { name: /get info|search/i })` (the submit button's label text) so it targets only the submit button, not the new Reset button.
-
-  3. **Add a new test** (inside the existing `describe('App', ...)` block):
+  2. **Add a new test** (inside the existing `describe('App', ...)` block):
      ```jsx
      it('reset button clears inputs and results', async () => {
        api.getFlightDetails.mockResolvedValue({
@@ -95,11 +99,12 @@
        render(<App />);
        const depInput = screen.getByLabelText(/departure flight/i);
        fireEvent.change(depInput, { target: { value: 'JL123' } });
-       fireEvent.click(screen.getByRole('button', { name: /get info|search/i }));
+       fireEvent.click(screen.getByRole('button', { name: /get info|searching/i }));
        await waitFor(() => expect(api.getFlightDetails).toHaveBeenCalledWith('JL123'));
+       expect(await screen.findByText('Japan Airlines')).toBeInTheDocument();
 
        // Now reset
-       fireEvent.click(screen.getByRole('button', { name: /reset|リセット/i }));
+       fireEvent.click(screen.getByRole('button', { name: /reset/i }));
 
        // Input cleared
        expect(screen.getByLabelText(/departure flight/i)).toHaveValue('');
@@ -108,7 +113,7 @@
      });
      ```
 
-  Verify: `npx vitest run src/App.test.jsx` passes with no skipped or weakened tests.
+  Verify: `npx vitest run src/App.test.jsx` passes with no skipped or weakened tests, and confirm (e.g. via `grep -n "getByRole('button')" src/App.test.jsx`) that no bare, unqualified `getByRole('button')` call remains anywhere in the file.
 
 - [ ] **Task 6 — Final validation: lint, test, build**
 
