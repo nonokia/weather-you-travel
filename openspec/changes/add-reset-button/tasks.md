@@ -115,7 +115,7 @@
 
   Verify: `npx vitest run src/App.test.jsx` passes with no skipped or weakened tests, and confirm (e.g. via `grep -n "getByRole('button')" src/App.test.jsx`) that no bare, unqualified `getByRole('button')` call remains anywhere in the file.
 
-- [ ] **Task 6 — Final validation: lint, test, build**
+- [x] **Task 6 — Final validation: lint, test, build**
 
   Run in sequence:
   ```bash
