@@ -20,6 +20,7 @@ jobs:
   heal:
     # Only react to genuine failures on the default branch.
     if: >
+      vars.AUTOMATION_PAUSED != 'true' &&
       github.event.workflow_run.conclusion == 'failure' &&
       github.event.workflow_run.head_branch == 'master' &&
       github.event.workflow_run.event != 'workflow_dispatch'

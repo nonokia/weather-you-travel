@@ -55,7 +55,7 @@ self-healing safe.** A green build is the contract every agent is held to.
     review-autofix.yml        # review findings -> fixes pushed to the PR
     self-healing-ci.yml       # CI failure  -> fix PR
     agent-build.yml           # labeled issue -> phased, resumable pipeline -> PR
-    self-improvement.yml      # weekly cron -> improvement PR
+    self-improvement.yml      # weekly system-level audit -> report + agent:build issue
     security-autofix.yml      # scan failure -> remediation PR
     incident-response.yml     # runtime error -> RCA + fix PR
 docs/
@@ -192,6 +192,28 @@ plans *before* any implementation budget is spent, and it produces a written
 verdict on the issue that a human can audit. It is the same
 "agents propose, a gate disposes" idea applied one level earlier: to the plan
 instead of the code.
+
+### Three layers of review
+
+A diff that is correct in isolation can still degrade the product as a whole —
+features built by separate, isolated agent sessions accumulate drift that no
+single PR owns (two ways of persisting to localStorage, a test that assumes
+"one button", behaviour that contradicts another feature). So review happens at
+three altitudes:
+
+| Layer | Workflow | Sees | Asks |
+|---|---|---|---|
+| Spec | constitution check (in agent-build) | one proposed change's spec | does this plan violate the constitution? |
+| Diff | `pr-review.yml` | one PR's diff | is this change correct on its own? |
+| **System** | `self-improvement.yml` | the **whole repo** | is the product still coherent as a whole? |
+
+The system-level auditor runs read-only over the entire codebase, posts a
+prioritized findings report (a rolling `audit-report` issue), and auto-files the
+single highest-priority finding as an `agent:build` issue — so the normal
+pipeline fixes it. It keeps at most one audit-driven fix outstanding at a time,
+and it reads `README.md`/`CLAUDE.md` first so it prioritizes by *this project's*
+essence (the automation is the product; the app is a substrate) rather than
+chasing app-feature polish.
 
 ---
 

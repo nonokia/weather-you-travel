@@ -35,7 +35,31 @@ Add the **`hold`** label to any PR to suspend autonomous merging immediately.
 
 - **Allowed to edit:** `src/`, `e2e/`, `docs/`, test files, and documentation.
 - **Edit with care (call it out explicitly in the PR):** `*.config.js`,
-  `.github/workflows/`, `package.json` dependencies.
+  `package.json` dependencies.
+- **Cannot be edited by this pipeline** — hard limits, not risk judgments.
+  The constitution-check phase MUST reject on sight any spec whose
+  `tasks.md`/`design.md` requires creating or editing a file under these
+  paths, rather than approving it and letting it fail during implementation:
+  - `.github/workflows/*` — the GitHub App token backing `claude[bot]` lacks
+    the `workflows` OAuth scope, so GitHub unconditionally rejects any push
+    that creates or modifies a workflow file, regardless of how small or
+    correct the diff is. Confirmed empirically: issue #38 failed 6/6
+    implement attempts with the identical `refusing to allow a GitHub App to
+    create or update workflow ... without workflows permission` error before
+    landing permanently in `blocked` (see orphaned branch
+    `agent-build/issue-38`); it was ultimately fixed by a direct,
+    non-pipeline push (PR #40).
+  - `.github/` (everything else under it, including this file) and
+    `.agent/` — not a token limit but a deliberate self-modification
+    guardrail: every propose/implement/autofix agent session is explicitly
+    instructed never to touch these paths, so that a pipeline run can never
+    silently rewrite the constitution or pipeline state governing its own
+    execution. Confirmed: issue #42 correctly self-blocked rather than
+    improvising around this rule instead of editing this very file (see
+    branch `agent-build/issue-42`).
+  - Either category needs a human to make the change directly (or an
+    explicit, deliberate exception carved out case by case) — re-running the
+    pipeline against the same spec will not produce a different outcome.
 - **Never touch:** `.env` real secrets, `package-lock.json` by hand (let
   `npm` regenerate it), anything under `.git/`.
 - Keep diffs **minimal and focused** on the stated task. Do not opportunistically
