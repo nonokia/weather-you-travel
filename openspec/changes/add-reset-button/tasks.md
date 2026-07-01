@@ -1,6 +1,6 @@
 # Tasks: Add Reset Button
 
-- [ ] **Task 1 — Add i18n keys to both locale files**
+- [x] **Task 1 — Add i18n keys to both locale files**
 
   Files: `src/locales/en/translation.json`, `src/locales/ja/translation.json`
 
