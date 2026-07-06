@@ -1,7 +1,7 @@
 {
   "issue": 46,
-  "change": "",
-  "phase": "propose",
+  "change": "test-real-api-fetch-coverage",
+  "phase": "constitution",
   "status": "in_progress",
   "attempts": {
     "propose": 1
