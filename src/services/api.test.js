@@ -180,4 +180,23 @@ describe('real-API code path', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0][0]).toContain('flight_iata=JL123');
   });
+
+  it('fetches and aggregates a real OpenWeatherMap forecast when the API key is set', async () => {
+    const list = Array.from({ length: 24 }, (_, i) => ({
+      dt_txt: `2026-07-0${Math.floor(i / 8) + 1} ${String((i % 8) * 3).padStart(2, '0')}:00:00`,
+      main: { temp: 20 + i * 0.4 },
+      weather: [{ main: i % 2 === 0 ? 'Clear' : 'Rain' }],
+    }));
+    vi.stubEnv('VITE_OPENWEATHER_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ list }),
+    }));
+
+    const { getWeather, aggregateForecast } = await import('./api');
+    const result = await getWeather('Osaka', 3);
+
+    expect(result).toEqual(aggregateForecast(list, 3));
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][0]).toContain('q=Osaka');
+  });
 });

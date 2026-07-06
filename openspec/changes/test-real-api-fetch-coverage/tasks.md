@@ -46,7 +46,7 @@ gets a fresh module instance to import.
     value instead of hand-writing the mapped shape again.
   - Verify: `npx vitest run src/services/api.test.js -t "fetches and maps a real AviationStack flight"` passes.
 
-- [ ] **Task 2 — Success path: `getWeather` with a stubbed OpenWeatherMap fetch**
+- [x] **Task 2 — Success path: `getWeather` with a stubbed OpenWeatherMap fetch**
   - File: `src/services/api.test.js`
   - Inside the same describe block, add:
     ```js
