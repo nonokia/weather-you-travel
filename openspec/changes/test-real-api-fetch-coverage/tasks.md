@@ -128,7 +128,7 @@ gets a fresh module instance to import.
     resolve via the existing mock-data fallback path.
   - Verify: `npx vitest run src/services/api.test.js -t "falls back to mock"` — all 4 pass.
 
-- [ ] **Task 4 — Final quality gate**
+- [x] **Task 4 — Final quality gate**
   - Run `npm run lint` and fix any linting errors introduced by this change
     (e.g. unused imports if any test is trimmed down).
   - Run `npm run test:run` and fix any failing tests — the full suite,
