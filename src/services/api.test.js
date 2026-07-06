@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   getWeatherIcon,
   cityFromTimezone,
@@ -132,6 +132,10 @@ describe('getWeather (mock fallback)', () => {
 
 // Real-API path: with a key present, the fetch transform should run end-to-end.
 describe('real-API code path', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
@@ -145,5 +149,35 @@ describe('real-API code path', () => {
     };
     const out = aggregateForecast(payload.list, 1);
     expect(out[0]).toEqual({ date: '2026-07-01', temp: 28, condition: 'Clear', icon: '☀️' });
+  });
+
+  it('fetches and maps a real AviationStack flight when the API key is set', async () => {
+    const raw = {
+      flight: { iata: 'JL123' },
+      airline: { name: 'Japan Airlines' },
+      departure: {
+        iata: 'HND',
+        airport: 'Haneda Airport',
+        timezone: 'Asia/Tokyo',
+        scheduled: '2026-07-01T10:00:00+00:00',
+      },
+      arrival: {
+        iata: 'ITM',
+        airport: 'Itami Airport',
+        timezone: 'Asia/Osaka',
+        scheduled: '2026-07-01T11:10:00+00:00',
+      },
+    };
+    vi.stubEnv('VITE_AVIATIONSTACK_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ data: [raw] }),
+    }));
+
+    const { getFlightDetails, mapAviationStackFlight } = await import('./api');
+    const result = await getFlightDetails('JL123');
+
+    expect(result).toEqual(mapAviationStackFlight(raw));
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][0]).toContain('flight_iata=JL123');
   });
 });

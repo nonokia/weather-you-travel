@@ -7,7 +7,7 @@ rewrite them). Add a `beforeEach(() => { vi.resetModules(); })` inside that
 same describe block if it isn't already there, so every test in the block
 gets a fresh module instance to import.
 
-- [ ] **Task 1 — Success path: `getFlightDetails` with a stubbed AviationStack fetch**
+- [x] **Task 1 — Success path: `getFlightDetails` with a stubbed AviationStack fetch**
   - File: `src/services/api.test.js`
   - Inside the `real-API code path` describe block, add:
     ```js
