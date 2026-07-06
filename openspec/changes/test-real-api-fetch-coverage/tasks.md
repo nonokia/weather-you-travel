@@ -73,7 +73,7 @@ gets a fresh module instance to import.
     to build the expected value.
   - Verify: `npx vitest run src/services/api.test.js -t "fetches and aggregates a real OpenWeatherMap forecast"` passes.
 
-- [ ] **Task 3 — Fallback path: network error and unexpected response shape**
+- [x] **Task 3 — Fallback path: network error and unexpected response shape**
   - File: `src/services/api.test.js`
   - Inside the same describe block, add four tests covering both functions x
     both failure modes:

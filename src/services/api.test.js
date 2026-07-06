@@ -199,4 +199,50 @@ describe('real-API code path', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0][0]).toContain('q=Osaka');
   });
+
+  it('falls back to mock flight data when the AviationStack fetch rejects', async () => {
+    vi.stubEnv('VITE_AVIATIONSTACK_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    const { getFlightDetails } = await import('./api');
+    const result = await getFlightDetails('JL123');
+
+    expect(result.flightNumber).toBe('JL123');
+    expect(result.arrival.city).toBe('Osaka');
+  });
+
+  it('falls back to mock flight data when AviationStack returns an unexpected shape', async () => {
+    vi.stubEnv('VITE_AVIATIONSTACK_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ error: 'rate limited' }), // no `data` key
+    }));
+
+    const { getFlightDetails } = await import('./api');
+    const result = await getFlightDetails('JL123');
+
+    expect(result.flightNumber).toBe('JL123');
+  });
+
+  it('falls back to mock weather data when the OpenWeatherMap fetch rejects', async () => {
+    vi.stubEnv('VITE_OPENWEATHER_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+    const { getWeather } = await import('./api');
+    const result = await getWeather('Osaka', 2);
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toHaveProperty('temp');
+  });
+
+  it('falls back to mock weather data when OpenWeatherMap returns an unexpected shape', async () => {
+    vi.stubEnv('VITE_OPENWEATHER_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ error: 'rate limited' }), // no `list` key
+    }));
+
+    const { getWeather } = await import('./api');
+    const result = await getWeather('Osaka', 2);
+
+    expect(result).toHaveLength(2);
+  });
 });
