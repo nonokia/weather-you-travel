@@ -20,13 +20,13 @@ describe('App', () => {
         // A heading should always render (the app title via i18n).
         expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
         // The primary call-to-action: searching by flight number.
-        expect(screen.getByRole('button')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /get info|searching/i })).toBeInTheDocument()
     })
 
     it('shows validation error and does not call getFlightDetails for an invalid flight number', async () => {
         render(<App />)
         fireEvent.change(screen.getByLabelText(/departure flight/i), { target: { value: 'X' } })
-        fireEvent.click(screen.getByRole('button'))
+        fireEvent.click(screen.getByRole('button', { name: /get info|searching/i }))
         expect(await screen.findByText(/valid flight number/i)).toBeInTheDocument()
         expect(api.getFlightDetails).not.toHaveBeenCalled()
     })
@@ -40,7 +40,7 @@ describe('App', () => {
         })
         render(<App />)
         fireEvent.change(screen.getByLabelText(/departure flight/i), { target: { value: 'JL123' } })
-        fireEvent.click(screen.getByRole('button'))
+        fireEvent.click(screen.getByRole('button', { name: /get info|searching/i }))
         await waitFor(() => expect(api.getFlightDetails).toHaveBeenCalledWith('JL123'))
         expect(screen.queryByText(/valid flight number/i)).not.toBeInTheDocument()
     })
@@ -68,7 +68,7 @@ describe('App', () => {
         render(<App />)
         fireEvent.change(screen.getByLabelText(/departure flight/i), { target: { value: 'JL123' } })
         fireEvent.change(screen.getByLabelText(/return flight/i), { target: { value: 'NH456' } })
-        fireEvent.click(screen.getByRole('button'))
+        fireEvent.click(screen.getByRole('button', { name: /get info|searching/i }))
 
         await waitFor(() => expect(api.getFlightDetails).toHaveBeenCalledTimes(2))
         expect(api.getFlightDetails).toHaveBeenCalledWith('JL123')
@@ -87,7 +87,7 @@ describe('App', () => {
 
         render(<App />)
         fireEvent.change(screen.getByLabelText(/departure flight/i), { target: { value: 'JL123' } })
-        fireEvent.click(screen.getByRole('button'))
+        fireEvent.click(screen.getByRole('button', { name: /get info|searching/i }))
 
         await waitFor(() => expect(api.getFlightDetails).toHaveBeenCalledWith('JL123'))
         expect(api.getFlightDetails).toHaveBeenCalledTimes(1)
@@ -99,9 +99,33 @@ describe('App', () => {
 
         render(<App />)
         fireEvent.change(screen.getByLabelText(/departure flight/i), { target: { value: 'JL123' } })
-        fireEvent.click(screen.getByRole('button'))
+        fireEvent.click(screen.getByRole('button', { name: /get info|searching/i }))
 
         const alert = await screen.findByRole('alert')
         expect(alert).toHaveTextContent(/flight not found/i)
+    })
+
+    it('reset button clears inputs and results', async () => {
+        api.getFlightDetails.mockResolvedValue({
+            flightNumber: 'JL123',
+            airline: 'Japan Airlines',
+            departure: { airport: 'NRT', city: 'Tokyo', time: '10:00' },
+            arrival: { airport: 'LAX', city: 'Los Angeles', time: '23:00' },
+        })
+
+        render(<App />)
+        const depInput = screen.getByLabelText(/departure flight/i)
+        fireEvent.change(depInput, { target: { value: 'JL123' } })
+        fireEvent.click(screen.getByRole('button', { name: /get info|searching/i }))
+        await waitFor(() => expect(api.getFlightDetails).toHaveBeenCalledWith('JL123'))
+        expect(await screen.findByText('Japan Airlines')).toBeInTheDocument()
+
+        // Now reset
+        fireEvent.click(screen.getByRole('button', { name: /reset/i }))
+
+        // Input cleared
+        expect(screen.getByLabelText(/departure flight/i)).toHaveValue('')
+        // Results cleared (FlightInfo / airline name no longer visible)
+        expect(screen.queryByText('Japan Airlines')).not.toBeInTheDocument()
     })
 })

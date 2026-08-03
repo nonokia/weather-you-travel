@@ -70,6 +70,14 @@ function App() {
 
   const handleRecentSelect = (flightNumber) => { handleSearch(flightNumber, ''); };
 
+  const handleReset = () => {
+    setDepartureData(null);
+    setReturnData(null);
+    setWeatherData(null);
+    setError('');
+    setLoading(false);
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
@@ -78,7 +86,7 @@ function App() {
       </header>
 
       <main className="main-content">
-        <FlightInput onSearch={handleSearch} isLoading={loading} />
+        <FlightInput onSearch={handleSearch} isLoading={loading} onReset={handleReset} />
         <RecentSearches searches={recentSearches} onSelect={handleRecentSelect} />
 
         {error && <div className="error-message" role="alert">{error}</div>}

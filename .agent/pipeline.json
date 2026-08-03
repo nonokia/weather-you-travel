@@ -1,8 +1,10 @@
 {
-  "issue": 32,
-  "change": "format-forecast-dates",
+  "issue": 33,
+  "change": "add-reset-button",
   "phase": "implement",
   "status": "in_progress",
-  "attempts": {},
+  "attempts": {
+    "implement": 1
+  },
   "pr": null
 }

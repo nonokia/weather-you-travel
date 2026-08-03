@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { useTranslation } from 'react-i18next';
 
-const FlightInput = ({ onSearch, isLoading }) => {
+const FlightInput = ({ onSearch, isLoading, onReset }) => {
     const { t } = useTranslation();
     const [departureFlight, setDepartureFlight] = useState('');
     const [returnFlight, setReturnFlight] = useState('');
@@ -12,6 +12,12 @@ const FlightInput = ({ onSearch, isLoading }) => {
         if (departureFlight) {
             onSearch(departureFlight, returnFlight);
         }
+    };
+
+    const handleReset = () => {
+        setDepartureFlight('');
+        setReturnFlight('');
+        onReset?.();
     };
 
     return (
@@ -43,6 +49,9 @@ const FlightInput = ({ onSearch, isLoading }) => {
                 </div>
                 <button type="submit" className="btn-primary" disabled={isLoading}>
                     {isLoading ? t('searching') : t('getInfo')}
+                </button>
+                <button type="button" className="btn-secondary" onClick={handleReset}>
+                    {t('reset')}
                 </button>
             </form>
         </div>

@@ -126,6 +126,23 @@ label {
   transform: none;
 }
 
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--primary-color);
+  border-radius: 8px;
+  padding: 1rem;
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
 .error-message {
   background: rgba(239, 68, 68, 0.2);
   color: #fca5a5;
