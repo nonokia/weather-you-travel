@@ -2,9 +2,9 @@
   "issue": 59,
   "change": "",
   "phase": "propose",
-  "status": "in_progress",
+  "status": "blocked",
   "attempts": {
-    "propose": 5
+    "propose": 6
   },
   "pr": null
 }
