@@ -4,7 +4,7 @@
   "phase": "propose",
   "status": "in_progress",
   "attempts": {
-    "propose": 2
+    "propose": 3
   },
   "pr": null
 }
