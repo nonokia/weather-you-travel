@@ -3,6 +3,8 @@
   "change": "",
   "phase": "propose",
   "status": "in_progress",
-  "attempts": {},
+  "attempts": {
+    "propose": 1
+  },
   "pr": null
 }
